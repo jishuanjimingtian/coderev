@@ -1,0 +1,14 @@
+# coderev ignore list
+# Files matching these patterns will be skipped during review.
+# One pattern per line. Supports * and ** globs.
+
+*.min.js
+*.bundle.js
+package-lock.json
+yarn.lock
+vendor/
+node_modules/
+dist/
+build/
+*.generated.*
+*.pb.go

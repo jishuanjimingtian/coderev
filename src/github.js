@@ -226,4 +226,140 @@ function resolvePrRef(ref, repoPath) {
   return { owner: repoInfo.owner, repo: repoInfo.repo, pr: parsed.pr };
 }
 
-module.exports = { parsePrRef, fetchPrDiff, postPrComment, resolvePrRef, detectRepoFromGh, detectRepoFromGit, resolveToken };
+/**
+ * Fetch PR file list with patch info (for line-level comments).
+ * @param {object} ref - { owner, repo, pr }
+ * @param {string} token - GitHub token
+ * @returns {Promise<Array>} Array of { filename, patch, sha }
+ */
+function fetchPrFiles(ref, token) {
+  const { owner, repo, pr } = ref;
+  return new Promise((resolve, reject) => {
+    const options = {
+      hostname: 'api.github.com',
+      path: `/repos/${owner}/${repo}/pulls/${pr}/files`,
+      headers: {
+        'User-Agent': 'coderev-agent',
+        'Accept': 'application/vnd.github.v3+json',
+      },
+    };
+    if (token) options.headers['Authorization'] = `token ${token}`;
+
+    https.get(options, (res) => {
+      let body = '';
+      res.on('data', (chunk) => (body += chunk));
+      res.on('end', () => {
+        if (res.statusCode === 200) {
+          try { resolve(JSON.parse(body)); }
+          catch { reject(new Error('Failed to parse PR files response')); }
+        } else {
+          reject(new Error(`GitHub API error ${res.statusCode}: ${body.slice(0, 200)}`));
+        }
+      });
+    }).on('error', reject);
+  });
+}
+
+/**
+ * Post inline review comments on a PR via the Pull Request Review API.
+ * @param {object} ref - { owner, repo, pr }
+ * @param {string} commitId - SHA of the head commit
+ * @param {Array} comments - Array of { path, line, body, side: 'LEFT'|'RIGHT' }
+ * @param {string} token - GitHub token
+ * @returns {Promise<object>} GitHub API response
+ */
+function postInlineComments(ref, commitId, comments, token) {
+  const { owner, repo, pr } = ref;
+  return new Promise((resolve, reject) => {
+    const body = {
+      commit_id: commitId,
+      event: 'COMMENT',
+      body: '## coderev review\n\n' + `Found ${comments.length} issue(s):`,
+      comments: comments.map(c => ({
+        path: c.path,
+        line: c.line,
+        side: c.side || 'RIGHT',
+        body: `**${c.type.toUpperCase()}**${c.severity ? ' [' + c.severity + ']' : ''}: ${c.message}${c.suggestion ? '\n\n> Suggestion: ' + c.suggestion : ''}`,
+      })),
+    };
+
+    const postData = JSON.stringify(body);
+    const options = {
+      hostname: 'api.github.com',
+      path: `/repos/${owner}/${repo}/pulls/${pr}/reviews`,
+      method: 'POST',
+      headers: {
+        'User-Agent': 'coderev-agent',
+        'Accept': 'application/vnd.github.v3+json',
+        'Authorization': `token ${token}`,
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(postData),
+      },
+    };
+
+    const req = https.request(options, (res) => {
+      let rb = '';
+      res.on('data', (c) => (rb += c));
+      res.on('end', () => {
+        if (res.statusCode === 200) {
+          try { resolve(JSON.parse(rb)); }
+          catch { resolve(rb); }
+        } else {
+          reject(new Error(`Failed to post review (${res.statusCode}): ${rb.slice(0, 300)}`));
+        }
+      });
+    });
+    req.on('error', reject);
+    req.write(postData);
+    req.end();
+  });
+}
+
+/**
+ * List all open pull requests for a repository.
+ * @param {object} ref - { owner, repo }
+ * @param {string} token - GitHub token
+ * @param {object} [options] - { state: 'open'|'closed'|'all', limit: number }
+ * @returns {Promise<Array>} Array of { number, title, head, base, url }
+ */
+function listPullRequests(ref, token, options = {}) {
+  const { owner, repo } = ref;
+  const state = options.state || 'open';
+  const limit = options.limit || 50;
+  return new Promise((resolve, reject) => {
+    const opts = {
+      hostname: 'api.github.com',
+      path: `/repos/${owner}/${repo}/pulls?state=${state}&per_page=${limit}&sort=updated&direction=desc`,
+      headers: {
+        'User-Agent': 'coderev-agent',
+        'Accept': 'application/vnd.github.v3+json',
+      },
+    };
+    if (token) opts.headers['Authorization'] = `token ${token}`;
+
+    https.get(opts, (res) => {
+      let body = '';
+      res.on('data', (c) => (body += c));
+      res.on('end', () => {
+        if (res.statusCode === 200) {
+          try {
+            const prs = JSON.parse(body);
+            resolve(prs.map(p => ({
+              number: p.number,
+              title: p.title,
+              head: p.head.ref,
+              base: p.base.ref,
+              url: p.html_url,
+              draft: p.draft || false,
+              updatedAt: p.updated_at,
+            })));
+          } catch { reject(new Error('Failed to parse PR list')); }
+        } else {
+          reject(new Error(`GitHub API error ${res.statusCode}: ${body.slice(0, 200)}`));
+        }
+      });
+    }).on('error', reject);
+  });
+}
+
+module.exports = { parsePrRef, fetchPrDiff, postPrComment, resolvePrRef, detectRepoFromGh, detectRepoFromGit, resolveToken, fetchPrFiles, postInlineComments, listPullRequests };

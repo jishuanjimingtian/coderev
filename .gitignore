@@ -2,3 +2,11 @@ node_modules/
 .env
 .coderevrc.json
 *.diff
+deploy.js
+create_*.js
+create_*.json
+post_test.js
+main_ref.json
+add_*.js
+add_*.py
+fix_dup.py

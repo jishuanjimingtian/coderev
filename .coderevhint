@@ -1,0 +1,27 @@
+# coderevhint — Project Context for AI Code Review
+#
+# This file provides context about your project to help the AI
+# deliver more relevant, targeted code reviews.
+#
+# Delete this sample text and write your own project description.
+# Place this file in your project root.
+
+## Project Overview
+- This is a Node.js CLI tool for automated code review
+- Uses CommonJS modules (require/module.exports)
+- Target runtime: Node.js 18+
+- Coding style: Follow standard.js conventions, 2-space indent
+
+## Architecture
+- src/cli.js - CLI entry point (commander.js)
+- src/reviewer.js - Core review logic, builds prompts, calls AI
+- src/github.js - GitHub API integration (PR diff fetch, comments)
+- src/config.js - Configuration loader (.coderevrc.json)
+- src/cache.js - Review result cache with SHA256 diff hashing
+- src/rules.js - Rule engine with predefined + custom rules
+
+## Conventions
+- Error messages: Use chalk for colored output, always prefix with ✖/⚠/✔
+- Async: Prefer async/await over raw promises
+- API keys: Never hardcode, always read from config or env vars
+- Testing: Use node:test, all exports should have test coverage

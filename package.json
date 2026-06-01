@@ -1,17 +1,24 @@
 {
-  "name": "coderev",
-  "version": "0.1.0",
+  "name": "@lishihao2749/coderev",
+  "version": "0.1.1",
   "description": "AI-powered code review agent for pull requests — CLI tool with GitHub integration",
   "main": "src/index.js",
   "bin": {
-    "coderev": "./src/cli.js"
+    "coderev": "src/cli.js"
   },
   "scripts": {
     "start": "node src/cli.js",
     "test": "node --test src/**/*.test.js",
     "prepublishOnly": "node --test src/**/*.test.js"
   },
-  "keywords": ["code-review", "ai", "cli", "github", "pr-review", "deepseek"],
+  "keywords": [
+    "code-review",
+    "ai",
+    "cli",
+    "github",
+    "pr-review",
+    "deepseek"
+  ],
   "author": "jishuanjimingtian",
   "license": "MIT",
   "type": "commonjs",
@@ -32,8 +39,8 @@
     ".env.example"
   ],
   "dependencies": {
-    "commander": "^12.0.0",
     "chalk": "^4.1.2",
+    "commander": "^12.0.0",
     "diff": "^5.2.0",
     "openai": "^4.0.0"
   }
