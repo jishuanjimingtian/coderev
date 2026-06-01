@@ -640,36 +640,6 @@ async function getGitDiff(repoPath, base = 'main', head) {
 }
 
 function formatTerminal(result) {
-  // English section
-  const enLines = [];
-  enLines.push(chalk.bold('\n📋 Code Review Report'));
-  enLines.push('━'.repeat(50));
-  if (result.summary) enLines.push('\n' + chalk.bold('Summary:') + ' ' + result.summary);
-  if (result.score !== undefined && result.score !== null) {
-    const color = result.score >= 80 ? chalk.green : result.score >= 50 ? chalk.yellow : chalk.red;
-    enLines.push('\n' + chalk.bold('Score:') + ' ' + color(result.score + '/100'));
-  }
-  if (result.issues && result.issues.length > 0) {
-    enLines.push('\n' + chalk.bold('Issues (' + result.issues.length + '):'));
-    for (const issue of result.issues) {
-      const typeLabel = issue.type === 'error' ? chalk.red('✖') : issue.type === 'warning' ? chalk.yellow('⚠') : chalk.blue('ℹ');
-      const sev = issue.severity ? ' [' + issue.severity + ']' : '';
-      enLines.push('  ' + typeLabel + sev + ' ' + issue.message);
-      if (issue.file) enLines.push('     ' + chalk.gray('File:') + ' ' + issue.file);
-      if (issue.line) enLines.push('     ' + chalk.gray('Line:') + ' ' + issue.line);
-      if (issue.suggestion) enLines.push('     ' + chalk.gray('Suggestion:') + ' ' + issue.suggestion);
-    }
-  }
-  if (result.suggestions && result.suggestions.length > 0) {
-    enLines.push('\n' + chalk.bold('Suggestions:'));
-    for (const s of result.suggestions) enLines.push('  💡 ' + s);
-  }
-  if (result.praise && result.praise.length > 0) {
-    enLines.push('\n' + chalk.bold('👍 Good Practices:'));
-    for (const p of result.praise) enLines.push('  ✅ ' + p);
-  }
-  enLines.push('\n' + '━'.repeat(50));
-
   // Chinese section
   const cnLines = [];
   cnLines.push(chalk.bold('\n📋 代码审查报告'));
@@ -701,37 +671,42 @@ function formatTerminal(result) {
   }
   cnLines.push('\n' + '━'.repeat(50));
 
-  return enLines.join('\n') + '\n' + cnLines.join('\n');
+  // English section
+  const enLines = [];
+  enLines.push(chalk.bold('\n📋 Code Review Report'));
+  enLines.push('━'.repeat(50));
+  if (result.summary) enLines.push('\n' + chalk.bold('Summary:') + ' ' + result.summary);
+  if (result.score !== undefined && result.score !== null) {
+    const color = result.score >= 80 ? chalk.green : result.score >= 50 ? chalk.yellow : chalk.red;
+    enLines.push('\n' + chalk.bold('Score:') + ' ' + color(result.score + '/100'));
+  }
+  if (result.issues && result.issues.length > 0) {
+    enLines.push('\n' + chalk.bold('Issues (' + result.issues.length + '):'));
+    for (const issue of result.issues) {
+      const typeLabel = issue.type === 'error' ? chalk.red('✖') : issue.type === 'warning' ? chalk.yellow('⚠') : chalk.blue('ℹ');
+      const sev = issue.severity ? ' [' + issue.severity + ']' : '';
+      enLines.push('  ' + typeLabel + sev + ' ' + issue.message);
+      if (issue.file) enLines.push('     ' + chalk.gray('File:') + ' ' + issue.file);
+      if (issue.line) enLines.push('     ' + chalk.gray('Line:') + ' ' + issue.line);
+      if (issue.suggestion) enLines.push('     ' + chalk.gray('Suggestion:') + ' ' + issue.suggestion);
+    }
+  }
+  if (result.suggestions && result.suggestions.length > 0) {
+    enLines.push('\n' + chalk.bold('Suggestions:'));
+    for (const s of result.suggestions) enLines.push('  💡 ' + s);
+  }
+  if (result.praise && result.praise.length > 0) {
+    enLines.push('\n' + chalk.bold('👍 Good Practices:'));
+    for (const p of result.praise) enLines.push('  ✅ ' + p);
+  }
+  enLines.push('\n' + '━'.repeat(50));
+
+  return cnLines.join('\n') + '\n' + enLines.join('\n');
 }
 
 function formatMarkdown(result) {
-  // English section
-  let md = '# 📋 Code Review Report\n\n';
-  if (result.summary) md += '**Summary:** ' + result.summary + '\n\n';
-  if (result.score !== undefined) md += '**Score:** ' + result.score + '/100\n\n';
-  if (result.issues?.length) {
-    md += '## Issues (' + result.issues.length + ')\n\n';
-    for (const issue of result.issues) {
-      md += '- **' + issue.type.toUpperCase() + '**';
-      if (issue.severity) md += ' [' + issue.severity + ']';
-      md += ': ' + issue.message + '\n';
-      if (issue.file) md += '  - File: \`' + issue.file + '\`\n';
-      if (issue.line) md += '  - Line: ' + issue.line + '\n';
-      if (issue.suggestion) md += '  - Suggestion: ' + issue.suggestion + '\n';
-    }
-  }
-  if (result.suggestions?.length) {
-    md += '\n## Suggestions\n\n';
-    for (const s of result.suggestions) md += '- 💡 ' + s + '\n';
-  }
-  if (result.praise?.length) {
-    md += '\n## 👍 Good Practices\n\n';
-    for (const p of result.praise) md += '- ✅ ' + p + '\n';
-  }
-
   // Chinese section
-  md += '\n---\n\n';
-  md += '# 📋 代码审查报告\n\n';
+  let md = '# 📋 代码审查报告\n\n';
   if (result.summary) md += '**摘要:** ' + result.summary + '\n\n';
   if (result.score !== undefined) md += '**评分:** ' + result.score + '/100\n\n';
   if (result.issues?.length) {
@@ -751,6 +726,31 @@ function formatMarkdown(result) {
   }
   if (result.praise?.length) {
     md += '\n## 👍 好的实践\n\n';
+    for (const p of result.praise) md += '- ✅ ' + p + '\n';
+  }
+
+  // English section
+  md += '\n---\n\n';
+  md += '# 📋 Code Review Report\n\n';
+  if (result.summary) md += '**Summary:** ' + result.summary + '\n\n';
+  if (result.score !== undefined) md += '**Score:** ' + result.score + '/100\n\n';
+  if (result.issues?.length) {
+    md += '## Issues (' + result.issues.length + ')\n\n';
+    for (const issue of result.issues) {
+      md += '- **' + issue.type.toUpperCase() + '**';
+      if (issue.severity) md += ' [' + issue.severity + ']';
+      md += ': ' + issue.message + '\n';
+      if (issue.file) md += '  - File: \`' + issue.file + '\`\n';
+      if (issue.line) md += '  - Line: ' + issue.line + '\n';
+      if (issue.suggestion) md += '  - Suggestion: ' + issue.suggestion + '\n';
+    }
+  }
+  if (result.suggestions?.length) {
+    md += '\n## Suggestions\n\n';
+    for (const s of result.suggestions) md += '- 💡 ' + s + '\n';
+  }
+  if (result.praise?.length) {
+    md += '\n## 👍 Good Practices\n\n';
     for (const p of result.praise) md += '- ✅ ' + p + '\n';
   }
 
