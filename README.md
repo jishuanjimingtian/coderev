@@ -1,98 +1,125 @@
-# coderev — AI Code Review Agent 🚀
+# coderev-cli
 
-**coderev** 是一个 AI 驱动的一站式代码审查工具。采用**多智能体并行审查架构**——3 个专业 Agent 同时从安全、Bug、质量维度审查代码，每个 Issue 附带置信度评分，自动过滤误报。支持 GitHub PR 集成、自动修复、git hooks、缓存、自定义规则、多语言专项审查、统计看板。
+> 多智能体 AI 代码审查工具 — Security / Bug / Quality 三个 Agent 并行审查，带置信度评分。
 
-## 🧠 架构：多智能体并行审查 (v0.3.0)
+[![npm version](https://img.shields.io/npm/v/coderev-cli)](https://www.npmjs.com/package/coderev-cli)
 
-```
-        你的代码 (git diff)
-               │
-        ┌──────┼──────┐
-        ▼      ▼      ▼
-    ┌──────┐┌──────┐┌──────┐
-    │  🔒  ││  🐛  ││  📐  │
-    │Security││  Bug  ││Quality│
-    │Auditor││Detector││Check │
-    └──┬───┘└──┬───┘└──┬───┘
-       │       │       │
-       └───────┼───────┘
-               ▼
-        ┌──────────┐
-        │ 合并 &    │
-        │ 置信度评分 │
-        │ (0-100)   │
-        └────┬─────┘
-             ▼
-      结构化审查报告
+---
+
+## 安装
+
+```bash
+npm install -g coderev-cli
 ```
 
-**3 个专业 Agent 并行工作**，从不同角度审查同一份代码：
+> **Node.js 版本要求：>= 18**
+
+```bash
+# 验证版本
+node -v
+```
+
+---
+
+## 快速上手
+
+```bash
+# 1. 初始化项目配置
+coderev init
+
+# 2. 设置 API Key（支持 DeepSeek / OpenAI）
+# Linux / macOS:
+export DEEPSEEK_API_KEY="***"
+# Windows PowerShell:
+$env:DEEPSEEK_API_KEY="***"
+
+# 3. 审查暂存区变更
+coderev review
+
+# 4. 或传入 git diff
+git diff main | coderev review
+
+# 5. 或审查 PR
+coderev review --pr owner/repo#42
+```
+
+---
+
+## 架构
+
+```
+   你的代码 (git diff)
+          │
+   ┌──────┼──────┐
+   ▼      ▼      ▼
+┌──────┐┌──────┐┌──────┐
+│  🔒  ││  🐛  ││  📐  │
+│ 安全  ││ 缺陷  ││ 质量  │
+│ 审计  ││ 检测  ││ 检查  │
+└──┬───┘└──┬───┘└──┬───┘
+   │       │       │
+   └───────┼───────┘
+           ▼
+    ┌──────────┐
+    │ 合并 &    │
+    │ 置信度评分 │
+    │ (0-100)   │
+    └────┬─────┘
+         ▼
+  结构化审查报告
+```
 
 | Agent | 专注领域 |
 |-------|---------|
-| 🔒 Security Auditor | SQL注入、XSS、SSRF、硬编码密钥、认证缺陷 |
-| 🐛 Bug Detector | 空指针、竞态条件、异步问题、逻辑错误 |
-| 📐 Code Quality | 代码复杂度、DRY、命名规范、异常处理 |
+| 🔒 安全审计 | SQL注入、XSS、SSRF、硬编码密钥、认证缺陷 |
+| 🐛 缺陷检测 | 空指针、竞态条件、异步问题、逻辑错误 |
+| 📐 质量检查 | 代码复杂度、DRY、命名规范、异常处理 |
 
-每个 issue 都会计算**置信度评分 (0-100)**，低于阈值（默认 60）的自动过滤。同一问题被多个 Agent 发现时自动去重。
+每个 issue 附带**置信度评分 (0-100)**，低于阈值（默认 60）自动过滤。多 Agent 发现的重复问题自动合并去重。
 
-## ⚡ 快速上手
+---
+
+## CLI 命令参考
+
+### review
 
 ```bash
-# 1. 安装
-npm install -g @lishihao2749/coderev
-
-# 2. 初始化项目配置
-coderev init
-
-# 3. 设置 API Key（二选一）
-export DEEPSEEK_API_KEY="sk-your-key-here"   # DeepSeek
-export OPENAI_API_KEY="sk-your-key-here"      # OpenAI
-
-# 4. 审查当前仓库暂存区
-coderev review
-
-# 5. 或审查两个分支间的差异
-coderev review --repo . --base main --head feature
-
-# 6. 或使用管道
-git diff main | coderev review
+coderev review                           # 多 Agent 并行审查（默认）
+coderev review --min-confidence 80       # 提高阈值，减少误报
+coderev review --single                  # 单 Agent 模式（v0.2 兼容，更省）
+coderev review --audit                   # 安全审计模式（OWASP 级）
+coderev review --no-cache                # 跳过缓存
+coderev review --format json             # JSON 输出
 ```
 
-## 🎯 CLI 选项详解
-
-### 审查命令
+### fix
 
 ```bash
-# 多智能体并行审查（默认，推荐）
-coderev review
-
-# 提高置信度阈值（更少但更可靠的结果）
-coderev review --min-confidence 80
-
-# 降低阈值（更多结果，含一些误报）
-coderev review --min-confidence 40
-
-# 单 Agent 模式（v0.2.x 传统模式，消费更低）
-coderev review --single
-
-# 安全审计模式（注入 OWASP 级审查）
-coderev review --audit
-
-# 跳过缓存强刷
-coderev review --no-cache
-
-# 输出 JSON
-coderev review --format json
+coderev fix --file changes.diff          # 自动修复建议
+coderev fix --file changes.diff --apply  # 生成并应用补丁
 ```
 
-### 其他命令
+### PR 审查
 
 ```bash
-coderev fix --file changes.diff              # 自动修复
-coderev fix --file changes.diff --apply      # 生成并应用补丁
-coderev hook install                         # 安装 git hook
+coderev review --pr owner/repo#42              # 审查外部 PR
+coderev review --pr 42                          # 自动检测当前仓库
+coderev review --pr owner/repo#42 --post        # 审查 + 贴评论
+coderev review --pr owner/repo#42 --inline      # 行内评论
+coderev review --pr owner/repo#42 --format json
+```
+
+### Git Hooks
+
+```bash
+coderev hook install                         # 安装 pre-commit
 coderev hook install pre-commit --min-score 70
+coderev hook install pre-push
+```
+
+### 其他
+
+```bash
 coderev stats                                # 统计看板
 coderev stats week                           # 本周统计
 coderev cache status                         # 缓存状态
@@ -100,39 +127,11 @@ coderev cache clear                          # 清空缓存
 coderev config show                          # 查看配置
 ```
 
-## 🔗 GitHub PR 审查
+---
 
-```bash
-coderev review --pr owner/repo#42              # 审查 PR
-coderev review --pr 42                          # 自动检测当前仓库
-coderev review --pr owner/repo#42 --post        # 审查 + 贴评论
-coderev review --pr owner/repo#42 --inline      # 行内评论
-coderev review --pr owner/repo#42 --format json # JSON 输出
-```
+## 配置管理
 
-`--inline` 模式将每条 issue 贴在 PR 的具体代码行上，像人工 review 一样直观。
-
-## 📝 项目上下文（.coderevhint）
-
-在项目根目录创建 `.coderevhint` 文件，描述项目概况、架构和规范。AI 审查时会自动加载并据此调整审查重点。
-
-coderev 也兼容 `CLAUDE.md` 文件，与 Claude Code 项目规范互通。
-
-## 🌐 多语言专项规则
-
-coderev 自动检测 diff 中的编程语言，为不同语言添加专项检查规则：
-
-| 语言 | 检查重点 |
-|---|---|
-| JavaScript | async/await 链、== vs ===、内存泄漏、import 循环依赖 |
-| TypeScript | strict 模式、avoid any、泛型、类型断言 |
-| Python | PEP 8、except 类型、mutable 默认参数、async 用法 |
-| Rust | unsafe 审计、unwrap/expect、生命周期、ownership |
-| Go | error handling、goroutine 安全、context 传播、data race |
-| Java | null 处理、checked exception、== vs .equals()、线程安全 |
-| SQL | 注入防护、N+1 查询、索引缺失、大 IN-clause |
-
-## 🗂 配置管理
+在项目根目录创建 `.coderevrc.json`：
 
 ```json
 {
@@ -155,33 +154,62 @@ coderev 自动检测 diff 中的编程语言，为不同语言添加专项检查
 }
 ```
 
-团队共享：将 `.coderevrc.json` 放入仓库根目录，全组自动读取。
+内置 8 套预定义规则集，并支持 JS / TS / Python / Rust / Go / Java / SQL 语言专项规则。
 
-## 🔄 GitHub Actions 自动审查
+### .coderevhint
 
-在工作流中使用 `coderev-review.yml`，PR 创建时自动审查并贴评论。详见 `.github/workflows/`。
+项目上下文描述文件。AI 审查时自动加载并据此调整分析重点。兼容 `CLAUDE.md`。
 
-## 📁 项目结构
+---
+
+## 支持的 Git 平台
+
+| 平台 | PR 审查 | 评论回贴 |
+|------|---------|---------|
+| GitHub | ✅ | ✅ 行内 / 摘要 |
+| GitLab | ✅ | ✅ |
+| Gitee  | ✅ | ✅ |
+| Bitbucket | ✅ | ✅ |
+
+---
+
+## 缓存
+
+- SHA256 摘要哈希
+- 24 小时 TTL
+- `coderev cache status` / `coderev cache clear`
+
+---
+
+## CI / GitHub Actions
+
+内置工作流文件 `.github/workflows/coderev-review.yml`，PR 自动审查。
+
+---
+
+## 项目结构
 
 ```
 coderev/
 ├── src/
-│   ├── cli.js        # CLI 入口（review/fix/hook/stats 等子命令）
-│   ├── reviewer.js   # AI 审查核心（多智能体并行 + 置信度评分）
-│   ├── config.js     # 配置加载
-│   ├── github.js     # GitHub API
-│   ├── gitlab.js     # GitLab API
-│   ├── gitee.js      # Gitee API
-│   ├── bitbucket.js  # Bitbucket API
-│   ├── cache.js      # 缓存系统
-│   ├── rules.js      # 规则引擎（8 套预定义 + 7 种语言 + 自定义）
-│   ├── stats.js      # 统计看板
+│   ├── cli.js          # CLI 入口
+│   ├── reviewer.js     # 多 Agent 审查核心
+│   ├── config.js       # 配置加载
+│   ├── github.js       # GitHub API
+│   ├── gitlab.js       # GitLab API
+│   ├── gitee.js        # Gitee API
+│   ├── bitbucket.js    # Bitbucket API
+│   ├── cache.js        # 缓存系统
+│   ├── rules.js        # 规则引擎
+│   ├── stats.js        # 统计看板
 │   └── coderev.test.js # 20 个单元测试
-├── .github/workflows/  # GitHub Actions
-├── .coderevrc.json     # 配置模板
-├── .coderevignore      # 忽略规则
-├── .coderevhint        # 项目上下文
-└── ROADMAP.md          # 路线图
+├── .github/workflows/
+├── .coderevrc.json
+├── .coderevignore
+└── .coderevhint
+```
+
+---
 
 ## License
 

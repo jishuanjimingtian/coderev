@@ -509,10 +509,11 @@ program
   .argument('<action>', 'Action: install | remove')
   .argument('[hook-type]', 'Hook type: pre-commit | pre-push', 'pre-commit')
   .option('--min-score <number>', 'Minimum score to allow commit (default: 50)', '50')
-  .action((action, hookType) => {
+  .action((action, hookType, options) => {
     const fs = require('fs');
     const gitDir = path.join(process.cwd(), '.git', 'hooks');
     const hookPath = path.join(gitDir, hookType);
+    const minScore = options.minScore || '50';
 
     if (action === 'install') {
       if (!fs.existsSync(gitDir)) {
@@ -527,7 +528,7 @@ echo "↻ Running coderev ${hookType} hook..."
 coderev review --repo . --output markdown > /tmp/coderev-hook-report.md 2>/dev/null
 SCORE=$(grep -oP 'Score: \\K\\d+' /tmp/coderev-hook-report.md || echo 0)
 echo "Score: $SCORE/100"
-MIN_SCORE=${options.minScore || '50'}
+MIN_SCORE=${minScore}
 if [ "$SCORE" -lt "$MIN_SCORE" ]; then
   echo "✖ Score below threshold ($MIN_SCORE). Aborting ${hookType}."
   cat /tmp/coderev-hook-report.md

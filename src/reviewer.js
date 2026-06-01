@@ -222,6 +222,10 @@ async function runParallelAgents(apiKey, config, prompts) {
 async function reviewDiff(diff, config, options = {}) {
   if (!config) config = loadConfig();
 
+  if (!diff || typeof diff !== 'string') {
+    return { summary: 'No diff provided', score: 0, issues: [], suggestions: [], praise: [] };
+  }
+
   // Apply ignore patterns: strip ignored files from diff
   if (options.ignorePattern) {
     diff = filterDiffByPattern(diff, options.ignorePattern);
@@ -446,13 +450,23 @@ async function callAI(apiKey, messages, config) {
     messages,
   });
 
-  return response.choices[0]?.message?.content || '';
+  return response.choices?.[0]?.message?.content || '';
 }
 
 /**
  * Parse AI response into structured review result.
  */
 function parseReviewResponse(text) {
+  if (!text || typeof text !== 'string') {
+    return {
+      summary: 'Empty response from AI',
+      score: 0,
+      issues: [{ type: 'error', severity: 'high', message: 'AI returned empty response', suggestion: 'Check API key and provider configuration' }],
+      suggestions: [],
+      praise: [],
+    };
+  }
+
   try {
     // Try direct parse first
     return JSON.parse(text);
@@ -494,6 +508,7 @@ function parseReviewResponse(text) {
  */
 function filterDiffByPattern(diff, ignorePattern) {
   if (!ignorePattern) return diff;
+  if (!diff || typeof diff !== 'string') return diff;
 
   const patterns = ignorePattern.split(',').map(p => {
     const glob = p.trim();

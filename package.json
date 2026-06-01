@@ -1,6 +1,6 @@
 {
-  "name": "@lishihao2749/coderev",
-  "version": "0.3.1",
+  "name": "coderev-cli",
+  "version": "1.0.8",
   "description": "Multi-agent AI code review for git -- parallel agents with confidence scoring",
   "main": "src/index.js",
   "bin": {
@@ -19,12 +19,12 @@
     "pr-review",
     "deepseek"
   ],
-  "author": "jishuanjimingtian",
+  "author": "Annie-Bot <2457643059@qq.com>",
   "license": "MIT",
   "type": "commonjs",
   "repository": {
     "type": "git",
-    "url": "https://github.com/jishuanjimingtian/coderev"
+    "url": "git+https://github.com/jishuanjimingtian/coderev.git"
   },
   "bugs": {
     "url": "https://github.com/jishuanjimingtian/coderev/issues"
