@@ -80,8 +80,7 @@ function getApiKey(config) {
   const key = process.env[envVar];
   if (!key) {
     throw new Error(
-      `API key not found. Set ${envVar} environment variable ` +
-      `or add "apiKey" to your config file.`
+      `API key not found.`
     );
   }
   return key;

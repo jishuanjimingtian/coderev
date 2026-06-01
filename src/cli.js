@@ -567,6 +567,9 @@ program
         model: 'deepseek-chat',
         temperature: 0.3,
         maxTokens: 4096,
+        // 填入你的 API Key 或通过环境变量设置
+        // apiKey: "sk-xxx",
+        // apiKeyEnv: "DEEPSEEK_API_KEY",
       },
       rules: {
         maxLineLength: 100,

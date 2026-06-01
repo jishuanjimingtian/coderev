@@ -131,34 +131,211 @@ coderev config show                          # 查看配置
 
 ## 配置管理
 
-在项目根目录创建 `.coderevrc.json`：
+coderev 支持三种配置方式（优先级从高到低），建议用配置文件，一劳永逸。
+
+### 方式一：全局配置文件
+
+在项目根目录创建 `.coderevrc.json`，coderev 会自动从当前目录向父目录逐级查找。也支持 `.coderevrc` 或 `coderev.config.json` 作为文件名。
+
+```bash
+# 一键生成默认配置
+coderev init
+```
+
+### 方式二：环境变量
+
+适用于临时测试或 CI 环境：
+```bash
+# Linux / macOS
+export DEEPSEEK_API_KEY="sk-xxx"
+export OPENAI_API_KEY="sk-xxx"
+
+# Windows PowerShell
+$env:DEEPSEEK_API_KEY="sk-xxx"
+```
+
+默认读取 `OPENAI_API_KEY`，如需改用 `DEEPSEEK_API_KEY`，在配置文件中设置：
+```json
+{
+  "ai": {
+    "apiKeyEnv": "DEEPSEEK_API_KEY"
+  }
+}
+```
+
+### 方式三：配置文件内直接写 Key
+
+```json
+{
+  "ai": {
+    "apiKey": "sk-xxx"
+  }
+}
+```
+> ⚠️ 注意：不要在公开仓库中提交含 Key 的配置文件，建议配合 `.gitignore` 或使用环境变量。
+
+---
+
+### 完整配置项说明
 
 ```json
 {
   "ai": {
     "provider": "deepseek",
     "model": "deepseek-chat",
-    "temperature": 0.3
+    "temperature": 0.3,
+    "maxTokens": 4096,
+    "apiKey": "",
+    "apiKeyEnv": "DEEPSEEK_API_KEY",
+    "baseURL": ""
   },
   "rules": {
     "maxLineLength": 100,
     "predefined": ["security", "performance", "style"],
+    "autoLanguage": true,
+    "custom": [
+      {
+        "name": "no-console-log",
+        "severity": "warning",
+        "message": "避免在生产代码中使用 console.log",
+        "filePattern": "src/**/*.js"
+      }
+    ]
+  },
+  "output": {
+    "format": "terminal",
+    "includeScore": true
+  }
+}
+```
+
+| 字段 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `ai.provider` | string | `"openai"` | AI 提供商，支持 `"openai"` / `"deepseek"` |
+| `ai.model` | string | 取决于 provider | 模型名称（openai 默认 `gpt-4o`，deepseek 默认 `deepseek-chat`）|
+| `ai.temperature` | number | `0.3` | 生成温度，越低越确定（0-1） |
+| `ai.maxTokens` | number | `4096` | 每次请求最大 token 数 |
+| `ai.apiKey` | string | `""` | 直接在配置文件中写入 API Key |
+| `ai.apiKeyEnv` | string | `"OPENAI_API_KEY"` | 从环境变量读取 Key 的变量名 |
+| `ai.baseURL` | string | `""` | 自定义 API 地址（兼容 OpenAI 协议的任意服务） |
+| `rules.maxLineLength` | number | `100` | 最大行长度检查 |
+| `rules.predefined` | string[] | `["security","performance","style"]` | 启用的预定义规则集 |
+| `rules.autoLanguage` | boolean | `true` | 是否自动检测 diff 语言并追加专项规则 |
+| `rules.custom` | object[] | `[]` | 自定义规则数组 |
+| `output.format` | string | `"terminal"` | 输出格式：`"terminal"` / `"markdown"` / `"json"` |
+| `output.includeScore` | boolean | `true` | 是否显示评分 |
+
+### 支持的 Provider
+
+| provider | 默认模型 | 默认 API 地址 |
+|----------|---------|--------------|
+| `openai` | `gpt-4o` | `https://api.openai.com` |
+| `deepseek` | `deepseek-chat` | `https://api.deepseek.com` |
+
+通过 `ai.baseURL` 可对接任何兼容 OpenAI 协议的 API 服务（如 Azure OpenAI、本地 LLM 等）。
+
+---
+
+### 预定义规则集
+
+`rules.predefined` 数组中可以启用以下规则集：
+
+| 名称 | 说明 |
+|------|------|
+| `security` | 安全检查：注入、XSS、认证缺陷、密钥泄露 |
+| `performance` | 性能检查：不必要的循环、内存泄漏、N+1 查询 |
+| `style` | 代码风格：空格、import、未使用变量 |
+| `typescript` | TypeScript 最佳实践（strict 模式、泛型、类型断言） |
+| `react` | React 最佳实践（hooks 规则、key props、组件命名） |
+| `node` | Node.js 最佳实践（错误处理、async 模式、文件安全） |
+| `naming` | 命名规范（camelCase、PascalCase、常量大写） |
+| `testing` | 测试质量（断言覆盖、边界情况、测试隔离） |
+
+---
+
+### 自定义规则
+
+在 `rules.custom` 中定义专属规则：
+
+```json
+{
+  "rules": {
     "custom": [
       {
         "name": "no-console-log",
         "severity": "warning",
         "message": "避免在生产代码中使用 console.log"
+      },
+      {
+        "name": "require-error-boundary",
+        "severity": "error",
+        "message": "React 组件必须包裹 ErrorBoundary",
+        "filePattern": "src/components/**/*.jsx"
       }
     ]
   }
 }
 ```
 
-内置 8 套预定义规则集，并支持 JS / TS / Python / Rust / Go / Java / SQL 语言专项规则。
+| 字段 | 说明 |
+|------|------|
+| `name` | 规则名称 |
+| `severity` | 严重级别：`"error"` / `"warning"` / `"info"` |
+| `message` | 审查时的提示文字 |
+| `filePattern` | 可选，限定生效的文件 glob 模式 |
+| `enabled` | 可选，设为 `false` 可临时禁用 |
 
-### .coderevhint
+---
 
-项目上下文描述文件。AI 审查时自动加载并据此调整分析重点。兼容 `CLAUDE.md`。
+### 语言专项规则
+
+coderev 自动从 diff 文件扩展名检测语言，追加专项检查（可通过 `rules.autoLanguage: false` 关闭）：
+
+| 语言 | 检查重点 |
+|------|---------|
+| JavaScript | async/await 链、== vs ===、内存泄漏、import 循环依赖 |
+| TypeScript | strict 模式、避免 any、泛型、类型断言 |
+| Python | PEP 8、except 类型、mutable 默认参数、async 用法 |
+| Rust | unsafe 审计、unwrap/expect、生命周期、ownership |
+| Go | error handling、goroutine 安全、context 传播、data race |
+| Java | null 处理、checked exception、== vs .equals()、线程安全 |
+| SQL | 注入防护、N+1 查询、索引缺失、大 IN-clause |
+
+---
+
+### .coderevignore：忽略文件
+
+不想被审查的文件，在 `.coderevignore` 中列出（glob 模式）：
+
+```
+# coderev ignore list
+*.min.js
+*.bundle.js
+package-lock.json
+yarn.lock
+vendor/
+dist/
+build/
+```
+
+---
+
+### .coderevhint：项目上下文
+
+给 AI 审查提供项目背景，让它更懂你的代码：
+
+```
+# 项目概况
+- Language: TypeScript
+- Framework: Next.js 14
+- Database: PostgreSQL
+
+# 编码规范
+- Prefer: 函数式组件、Tailwind CSS、Server Actions
+- Avoid: any 类型、使用 any 断言
+```
+
+兼容 `CLAUDE.md` 格式，两者可共存。
 
 ---
 
