@@ -1,6 +1,59 @@
 # coderev — AI Code Review Agent 🚀
 
-**coderev** 是一个 AI 驱动的一站式代码审查工具。分析差异文件并提供结构化反馈——问题、改进建议、评分和表扬。支持 GitHub PR 集成、自动修复、git hooks、缓存、自定义规则、多语言专项审查、统计看板。
+**coderev** 是一个 AI 驱动的一站式代码审查工具。采用**多智能体并行审查架构**——3 个专业 Agent 同时从安全、Bug、质量维度审查代码，每个 Issue 附带置信度评分，自动过滤误报。支持 GitHub PR 集成、自动修复、git hooks、缓存、自定义规则、多语言专项审查、统计看板。
+
+## 🧠 架构：多智能体并行审查 (v0.3.0)
+
+```
+        你的代码 (git diff)
+               │
+        ┌──────┼──────┐
+        ▼      ▼      ▼
+    ┌──────┐┌──────┐┌──────┐
+    │  🔒  ││  🐛  ││  📐  │
+    │Security││  Bug  ││Quality│
+    │Auditor││Detector││Check │
+    └──┬───┘└──┬───┘└──┬───┘
+       │       │       │
+       └───────┼───────┘
+               ▼
+        ┌──────────┐
+        │ 合并 &    │
+        │ 置信度评分 │
+        │ (0-100)   │
+        └────┬─────┘
+             ▼
+      结构化审查报告
+```
+
+**3 个专业 Agent 并行工作**，从不同角度审查同一份代码：
+
+| Agent | 专注领域 |
+|-------|---------|
+| 🔒 Security Auditor | SQL注入、XSS、SSRF、硬编码密钥、认证缺陷 |
+| 🐛 Bug Detector | 空指针、竞态条件、异步问题、逻辑错误 |
+| 📐 Code Quality | 代码复杂度、DRY、命名规范、异常处理 |
+
+每个 issue 都会计算**置信度评分 (0-100)**，低于阈值（默认 60）的自动过滤。同一问题被多个 Agent 发现时自动去重。
+
+## ⚡ 新功能
+
+```bash
+# 多智能体并行审查（默认）
+coderev review
+
+# 提高置信度阈值（更少但更可靠的结果）
+coderev review --min-confidence 80
+
+# 降低阈值（更多结果，含一些误报）
+coderev review --min-confidence 40
+
+# 单 Agent 模式（v0.2.x 传统模式）
+coderev review --single
+
+# 安全审计模式（注入 OWASP 级审查）
+coderev review --audit
+```
 
 ## 快速开始
 
@@ -119,10 +172,13 @@ coderev init                        # 生成 .coderevrc.json + .coderevignore + 
 ```
 coderev/
 ├── src/
-│   ├── cli.js        # CLI 入口 (7 个子命令)
-│   ├── reviewer.js   # AI 审查核心（DeepSeek / OpenAI）
+│   ├── cli.js        # CLI 入口 (7 个子命令，支持 --single / --min-confidence)
+│   ├── reviewer.js   # AI 审查核心（多智能体并行 / 置信度评分 / 3 个 Agent）
 │   ├── config.js     # 配置加载（自动递归搜索）
 │   ├── github.js     # GitHub API 交互（PR、评论、行内）
+│   ├── gitlab.js     # GitLab API 交互
+│   ├── gitee.js      # Gitee API 交互
+│   ├── bitbucket.js  # Bitbucket API 交互
 │   ├── cache.js      # 缓存系统（SHA256 + 24h TTL）
 │   ├── rules.js      # 规则引擎（8 套预定义 + 7 种语言专项 + 自定义）
 │   ├── stats.js      # 统计看板

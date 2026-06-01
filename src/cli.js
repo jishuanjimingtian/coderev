@@ -36,6 +36,9 @@ program
   .option('--post', 'Post review result as PR/MR comment')
   .option('--no-cache', 'Skip cache and force fresh review')
   .option('--audit', 'Security audit mode (OWASP-focused review)')
+  .option('--single', 'Use single-agent mode (legacy, no parallel review)')
+  .option('--min-confidence <number>', 'Minimum confidence threshold 0-100 (default: 60)', '60')
+  .option('--agents <list>', 'Comma-separated agent list: security,bugs,quality')
   .action(async (options) => {
     try {
       const config = loadConfig(options.config);
@@ -172,6 +175,8 @@ program
         noCache: options.noCache === false,
         ignorePattern,
         audit: options.audit || undefined,
+        single: options.single || undefined,
+        minConfidence: parseInt(options.minConfidence) || undefined,
       });
 
       let output;
@@ -317,7 +322,7 @@ program
 
       console.error(chalk.blue('↻ Generating fix patch...'));
       const { reviewDiff } = require('./reviewer');
-      const result = await reviewDiff(diff, config, { noCache: true });
+      const result = await reviewDiff(diff, config, { noCache: true, single: true });
 
       // Build fix prompt from issues
       const apiKey = getApiKey(config);

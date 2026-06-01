@@ -3,14 +3,220 @@ const { cacheKey, getCached, setCached } = require('./cache');
 const { recordReview } = require('./stats');
 const { getRuleDescriptions } = require('./rules');
 
+// ── 多智能体并行审查 ──
+
 /**
- * Review a git diff string using AI.
+ * Agent roles for parallel review
+ */
+const AGENT_ROLES = [
+  {
+    name: 'security',
+    label: '🔒 Security Auditor',
+    focus: `Focus on security vulnerabilities:
+- SQL injection, command injection
+- XSS, CSRF, SSRF
+- Hardcoded secrets, weak auth
+- Insecure deserialization
+- Path traversal, IDOR
+- Rate limiting, missing access control
+- Insecure cryptography
+- Supply chain risks (unpinned deps)`,
+    weight: 1.0,
+  },
+  {
+    name: 'bugs',
+    label: '🐛 Bug Detector',
+    focus: `Focus on bugs and correctness:
+- Null pointer / undefined access
+- Race conditions, async issues
+- Off-by-one errors
+- Type mismatches
+- Memory leaks
+- Uncaught exceptions
+- Logic errors
+- Infinite loops, recursion
+- Incorrect API usage`,
+    weight: 1.0,
+  },
+  {
+    name: 'quality',
+    label: '📐 Code Quality',
+    focus: `Focus on code quality and conventions:
+- Project conventions and style
+- DRY violations
+- Over-engineering / complexity
+- Naming conventions
+- Error handling patterns
+- Test coverage gaps
+- Documentation quality
+- Performance anti-patterns
+- Dead code / unused imports`,
+    weight: 1.0,
+  },
+];
+
+/**
+ * Merge results from multiple agents with confidence scoring.
+ * Each issue gets a confidence score 0-100 as the agent's confidence
+ * that this is a real, actionable issue.
+ */
+function mergeAgentResults(agents, diff, projectHint) {
+  const allIssues = [];
+  const seenMessages = new Set();
+
+  for (const agentResult of agents) {
+    if (!agentResult.success || !agentResult.issues) continue;
+
+    for (const issue of agentResult.issues) {
+      // Deduplicate by message signature
+      const sig = `${issue.file || ''}:${issue.line || 0}:${issue.message.slice(0, 60)}`;
+      if (seenMessages.has(sig)) continue;
+      seenMessages.add(sig);
+
+      // Assign confidence based on agent's confidence in this issue
+      // If agent didn't provide a score, calculate based on issue type
+      const confidence = issue.confidence ?? calculateConfidence(issue, agentResult.name);
+
+      allIssues.push({
+        ...issue,
+        confidence,
+        detectedBy: agentResult.name,
+      });
+    }
+  }
+
+  // Sort by confidence (highest first)
+  allIssues.sort((a, b) => (b.confidence || 0) - (a.confidence || 0));
+
+  // Filter: only keep confidence >= 60 (below threshold = false positive)
+  const filtered = allIssues.filter(i => i.confidence >= 60);
+  const filteredCount = allIssues.length - filtered.length;
+
+  return { issues: filtered, filteredCount };
+}
+
+/**
+ * Calculate confidence score based on issue characteristics.
+ */
+function calculateConfidence(issue, agentName) {
+  let base = 70;
+
+  // Error types are higher confidence
+  if (issue.type === 'error') base += 15;
+  else if (issue.type === 'warning') base += 5;
+
+  // Issues with file + line are more actionable
+  if (issue.file) base += 5;
+  if (issue.line) base += 5;
+  if (issue.suggestion) base += 5;
+
+  // Cap at 99
+  return Math.min(99, base);
+}
+
+/**
+ * Build parallel agent prompts for multi-perspective review.
+ */
+function buildAgentPrompts(diff, config, options = {}) {
+  const rulesConfig = config.rules || {};
+  const ruleLines = getRuleDescriptions(rulesConfig, diff);
+  const auditBlock = options.audit ? '\n- **SECURITY AUDIT MODE ACTIVE**' : '';
+
+  return AGENT_ROLES.map(role => {
+    return {
+      role,
+      messages: [
+        {
+          role: 'system',
+          content: `You are ${role.label}, an expert code reviewer.
+
+Your task: Review the provided git diff and ${role.focus}
+
+${options.projectHint ? `Project context:
+${options.projectHint}
+
+` : ''}
+Return a JSON object:
+\`\`\`json
+{
+  "issues": [
+    {
+      "type": "error|warning|info",
+      "severity": "high|medium|low",
+      "confidence": <number 0-100, how confident you are this is a real issue>,
+      "file": "filename (optional)",
+      "line": <line_number> (optional),
+      "message": "Description",
+      "suggestion": "How to fix (optional)"
+    }
+  ],
+  "summary": "Brief summary of findings from this perspective"
+}
+\`\`\`
+
+Confidence scoring guide:
+- 80-100: Absolutely certain, definitely a real issue that should be fixed
+- 60-79: Highly likely, strong evidence but not 100%
+- 40-59: Possible, some evidence but could be false positive
+- 20-39: Weak signal, low confidence
+- 0-19: Not confident, noise
+
+Important: Return ONLY valid JSON. No markdown wrapping.${auditBlock}`,
+        },
+        {
+          role: 'user',
+          content: `Git diff to review:
+
+\`\`\`diff
+${diff.slice(0, 8000)}
+\`\`\``,
+        },
+      ],
+    };
+  });
+}
+
+/**
+ * Run parallel agents and collect results.
+ */
+async function runParallelAgents(apiKey, config, prompts) {
+  const results = [];
+  const errors = [];
+
+  const tasks = prompts.map(async (p) => {
+    try {
+      const text = await callAI(apiKey, p.messages, config);
+      const parsed = parseReviewResponse(text);
+      return { name: p.role.name, success: true, ...parsed };
+    } catch (err) {
+      return { name: p.role.name, success: false, error: err.message, issues: [] };
+    }
+  });
+
+  // Run all agents in parallel
+  const settled = await Promise.allSettled(tasks);
+  for (const s of settled) {
+    if (s.status === 'fulfilled') {
+      results.push(s.value);
+    } else {
+      errors.push(s.reason);
+    }
+  }
+
+  return { results, errors };
+}
+
+/**
+ * Review a git diff string using multi-agent parallel review.
  * @param {string} diff - The git diff text
  * @param {object} config - Configuration object (optional, loaded if omitted)
  * @param {object} [options] - Additional options
  * @param {boolean} [options.noCache] - Skip cache
+ * @param {boolean} [options.single] - Use single agent (legacy mode, no parallel)
+ * @param {boolean} [options.audit] - Security audit mode
  * @param {string} [options.context] - Previous review context (for incremental reviews)
  * @param {string} [options.ignorePattern] - File patterns to ignore
+ * @param {number} [options.minConfidence] - Minimum confidence threshold (default: 60)
  * @returns {Promise<object>} Review result with issues, suggestions, score, etc.
  */
 async function reviewDiff(diff, config, options = {}) {
@@ -22,7 +228,7 @@ async function reviewDiff(diff, config, options = {}) {
   }
 
   // Check cache
-  if (!options.noCache) {
+  if (!options.noCache && !options.single && !options.audit) {
     const ckey = cacheKey(diff);
     const cached = getCached(ckey);
     if (cached) {
@@ -31,12 +237,56 @@ async function reviewDiff(diff, config, options = {}) {
   }
 
   const apiKey = getApiKey(config);
-
-  // Load .coderevhint for project context
   const projectHint = loadProjectHint();
-  const prompt = buildReviewPrompt(diff, config, { ...options, projectHint });
-  const aiResponse = await callAI(apiKey, prompt, config);
-  const result = parseReviewResponse(aiResponse);
+  const minConfidence = options.minConfidence ?? 60;
+
+  let result;
+
+  if (options.single) {
+    // Legacy single-agent mode
+    const prompt = buildReviewPrompt(diff, config, { ...options, projectHint });
+    const aiResponse = await callAI(apiKey, prompt, config);
+    result = parseReviewResponse(aiResponse);
+    // Add default confidence to legacy results
+    if (result.issues) {
+      result.issues = result.issues.map(i => ({
+        ...i,
+        confidence: calculateConfidence(i, 'legacy'),
+      })).filter(i => i.confidence >= minConfidence);
+    }
+  } else {
+    // Multi-agent parallel review
+    const prompts = buildAgentPrompts(diff, config, { ...options, projectHint });
+    const { results: agentResults, errors } = await runParallelAgents(apiKey, config, prompts);
+
+    // Merge and score issues
+    const { issues, filteredCount } = mergeAgentResults(agentResults, diff, projectHint);
+
+    // Build final summary
+    const totalAgentIssues = agentResults.reduce((s, a) => s + (a.issues?.length || 0), 0);
+    const agentSummaries = agentResults.map(a => `  ${a.name}: ${a.issues?.length || 0} issues`).join('\n');
+
+    result = {
+      summary: agentResults.map(a => a.summary).filter(Boolean).join(' | '),
+      score: calculateOverallScore(issues, agentResults),
+      issues,
+      suggestions: [],
+      praise: [],
+      _agents: {
+        total: agentResults.length,
+        summary: agentSummaries,
+        totalIssuesFound: totalAgentIssues,
+        filteredLowConfidence: filteredCount,
+        minConfidence,
+        errors: errors.length,
+      },
+    };
+
+    // Generate overall suggestions from top issues
+    if (issues.length > 0) {
+      result.suggestions = issues.slice(0, 3).map(i => i.suggestion).filter(Boolean);
+    }
+  }
 
   // Record to stats
   try { recordReview(result); } catch {}
@@ -48,6 +298,30 @@ async function reviewDiff(diff, config, options = {}) {
   }
 
   return result;
+}
+
+/**
+ * Calculate overall quality score from merged multi-agent results.
+ */
+function calculateOverallScore(issues, agentResults) {
+  if (issues.length === 0) return 100;
+
+  const errorCount = issues.filter(i => i.type === 'error').length;
+  const warningCount = issues.filter(i => i.type === 'warning').length;
+  const infoCount = issues.filter(i => i.type === 'info').length;
+
+  const highConfidence = issues.filter(i => i.confidence >= 85).length;
+  const mediumConfidence = issues.filter(i => i.confidence >= 70 && i.confidence < 85).length;
+
+  // Base deductions
+  let score = 100;
+  score -= errorCount * 15;
+  score -= warningCount * 8;
+  score -= infoCount * 3;
+  score -= highConfidence * 5;  // Extra deduction for high-confidence issues
+  score -= mediumConfidence * 2;
+
+  return Math.max(0, Math.min(100, score));
 }
 
 /**

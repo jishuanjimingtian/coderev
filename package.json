@@ -1,7 +1,7 @@
 {
   "name": "@lishihao2749/coderev",
-  "version": "0.1.1",
-  "description": "AI-powered code review agent for pull requests — CLI tool with GitHub integration",
+  "version": "0.3.0",
+  "description": "Multi-agent AI code review for git — powered by parallel agents with confidence scoring",
   "main": "src/index.js",
   "bin": {
     "coderev": "src/cli.js"
