@@ -1,7 +1,7 @@
 {
   "name": "@lishihao2749/coderev",
-  "version": "0.3.0",
-  "description": "Multi-agent AI code review for git — powered by parallel agents with confidence scoring",
+  "version": "0.3.1",
+  "description": "Multi-agent AI code review for git -- parallel agents with confidence scoring",
   "main": "src/index.js",
   "bin": {
     "coderev": "src/cli.js"
