@@ -214,7 +214,7 @@ program
         const https = require('https');
         const prInfo = await new Promise((resolve, reject) => {
           https.get('https://api.github.com/repos/' + prRef.owner + '/' + prRef.repo + '/pulls/' + prRef.pr, {
-            headers: { 'User-Agent': 'coderev', 'Accept': 'application/vnd.github.v3+json', 'Authorization': '***' + token },
+            headers: { 'User-Agent': 'coderev', 'Accept': 'application/vnd.github.v3+json', 'Authorization': 'token ' + token },
           }, (r) => { let b=''; r.on('data',c=>b+=c); r.on('end',()=>{ try{resolve(JSON.parse(b))}catch{reject()}}); }).on('error', reject);
         });
 
@@ -340,10 +340,10 @@ program
       const aiResponse = await callAI(apiKey, fixPrompt, config);
 
       // Extract patch from response
-      const patchMatch = aiResponse.match(/\`\`\`diff\n([\s\S]*?)\n\`\`\`/);
+      const patchMatch = aiResponse.match(/```diff\n([\s\S]*?)\n```/);
       const patch = patchMatch ? patchMatch[1] : aiResponse;
 
-      console.log('\n' + chalk.bold('🩹 Fix Patch:'));
+      console.log('\n' + chalk.bold('🩹 Fix Patch / 修复补丁:'));
       console.log('━'.repeat(50));
       console.log(patch);
 
@@ -381,7 +381,7 @@ program
       const masked = JSON.parse(JSON.stringify(config));
       if (masked.ai?.apiKey) masked.ai.apiKey = masked.ai.apiKey.slice(0, 8) + '...' + masked.ai.apiKey.slice(-4);
       if (masked.github?.token) masked.github.token = masked.github.token.slice(0, 8) + '...' + masked.github.token.slice(-4);
-      console.log(chalk.bold('\n⚙ Active Configuration:'));
+      console.log(chalk.bold('\n⚙ Active Configuration / 当前配置:'));
       console.log('━'.repeat(50));
       console.log(JSON.stringify(masked, null, 2));
     } else if (action === 'validate') {
@@ -407,9 +407,9 @@ program
           if (!parsed.ai?.provider) errors.push('Missing "ai.provider"');
           if (!parsed.ai?.model) errors.push('Missing "ai.model"');
           if (errors.length === 0) {
-            console.log(chalk.green(`✔ Config valid: ${found}`));
+            console.log(chalk.green(`✔ Config valid / 配置有效: ${found}`));
           } else {
-            console.log(chalk.yellow(`⚠ Config found but has issues:`));
+            console.log(chalk.yellow(`⚠ Config found but has issues / 配置存在但有问题:`));
             for (const e of errors) console.log(chalk.yellow(`   ${e}`));
           }
         } catch (parseErr) {
@@ -463,20 +463,20 @@ program
       return;
     }
 
-    console.log(chalk.bold('\n📊 Review Statistics'));
+    console.log(chalk.bold('\n📊 Review Statistics / 审查统计'));
     console.log('━'.repeat(50));
-    console.log(`  Period:       ${chalk.bold(period)}`);
-    console.log(`  Total reviews: ${stats.total}`);
+    console.log(`  Period / 周期:       ${chalk.bold(period)}`);
+    console.log(`  Total reviews / 总数: ${stats.total}`);
     if (stats.totalAllTime > stats.total) {
-      console.log(`  All time:     ${stats.totalAllTime}`);
+      console.log(`  All time / 累计:     ${stats.totalAllTime}`);
     }
-    console.log(`  Avg score:    ${chalk.cyan(stats.averageScore)}`);
-    console.log(`  Highest:      ${chalk.green(stats.highestScore)}`);
-    console.log(`  Lowest:       ${chalk.red(stats.lowestScore)}`);
-    console.log(`  Total issues: ${chalk.yellow(stats.totalIssues)}`);
+    console.log(`  Avg score / 平均分:    ${chalk.cyan(stats.averageScore)}`);
+    console.log(`  Highest / 最高:      ${chalk.green(stats.highestScore)}`);
+    console.log(`  Lowest / 最低:       ${chalk.red(stats.lowestScore)}`);
+    console.log(`  Total issues / 问题数: ${chalk.yellow(stats.totalIssues)}`);
 
     if (Object.keys(stats.issueTypes).length > 0) {
-      console.log(chalk.bold('\n  Issue Types:'));
+      console.log(chalk.bold('\n  Issue Types / 问题类型:'));
       for (const [type, count] of Object.entries(stats.issueTypes)) {
         const icon = type === 'error' ? chalk.red('✖') : type === 'warning' ? chalk.yellow('⚠') : chalk.blue('ℹ');
         console.log(`    ${icon} ${type}: ${count}`);
@@ -484,10 +484,11 @@ program
     }
 
     if (Object.keys(stats.severityBreakdown).length > 0) {
-      console.log(chalk.bold('\n  Severity:'));
+      console.log(chalk.bold('\n  Severity / 严重程度:'));
       for (const [sev, count] of Object.entries(stats.severityBreakdown)) {
         const color = sev === 'high' ? chalk.red : sev === 'medium' ? chalk.yellow : chalk.blue;
-        console.log(`    ${color('●')} ${sev}: ${count}`);
+        const sevLabel = sev === 'high' ? '严重' : sev === 'medium' ? '中等' : sev === 'low' ? '轻微' : sev;
+        console.log(`    ${color('●')} ${sevLabel}: ${count}`);
       }
     }
 
@@ -640,43 +641,44 @@ async function getGitDiff(repoPath, base = 'main', head) {
 
 function formatTerminal(result) {
   const lines = [];
-  lines.push(chalk.bold('\n📋 Code Review Report'));
+  lines.push(chalk.bold('\n📋 Code Review Report / 代码审查报告'));
   lines.push('━'.repeat(50));
 
   if (result.summary) {
-    lines.push(`\n${chalk.bold('Summary:')} ${result.summary}`);
+    lines.push('\n' + chalk.bold('Summary / 摘要:') + ' ' + result.summary);
   }
 
   if (result.score !== undefined && result.score !== null) {
     const color = result.score >= 80 ? chalk.green : result.score >= 50 ? chalk.yellow : chalk.red;
-    lines.push(`\n${chalk.bold('Score:')} ${color(`${result.score}/100`)}`);
+    lines.push('\n' + chalk.bold('Score / 评分:') + ' ' + color(result.score + '/100'));
   }
 
   if (result.issues && result.issues.length > 0) {
-    lines.push(`\n${chalk.bold(`Issues (${result.issues.length}):`)}`);
+    lines.push('\n' + chalk.bold('Issues / 问题 (' + result.issues.length + '):'));
     for (const issue of result.issues) {
       const typeLabel =
         issue.type === 'error' ? chalk.red('✖') :
         issue.type === 'warning' ? chalk.yellow('⚠') : chalk.blue('ℹ');
-      const severity = issue.severity ? ` [${issue.severity}]` : '';
-      lines.push(`  ${typeLabel}${severity} ${issue.message}`);
-      if (issue.file) lines.push(`     File: ${issue.file}`);
-      if (issue.line) lines.push(`     Line: ${issue.line}`);
-      if (issue.suggestion) lines.push(`     Suggestion: ${issue.suggestion}`);
+      const sevLabel = issue.severity === 'high' ? '严重' : issue.severity === 'medium' ? '中等' : issue.severity === 'low' ? '轻微' : '';
+      const severity = issue.severity ? ' [' + sevLabel + ']' : '';
+      lines.push('  ' + typeLabel + severity + ' ' + issue.message);
+      if (issue.file) lines.push('     ' + chalk.gray('File / 文件:') + ' ' + issue.file);
+      if (issue.line) lines.push('     ' + chalk.gray('Line / 行:') + ' ' + issue.line);
+      if (issue.suggestion) lines.push('     ' + chalk.gray('Suggestion / 建议:') + ' ' + issue.suggestion);
     }
   }
 
   if (result.suggestions && result.suggestions.length > 0) {
-    lines.push(`\n${chalk.bold('Suggestions:')}`);
+    lines.push('\n' + chalk.bold('Suggestions / 改进建议:'));
     for (const s of result.suggestions) {
-      lines.push(`  💡 ${s}`);
+      lines.push('  💡 ' + s);
     }
   }
 
   if (result.praise && result.praise.length > 0) {
-    lines.push(`\n${chalk.bold('👍 Good Practices:')}`);
+    lines.push('\n' + chalk.bold('👍 Good Practices / 好的实践:'));
     for (const p of result.praise) {
-      lines.push(`  ✅ ${p}`);
+      lines.push('  ✅ ' + p);
     }
   }
 
@@ -685,31 +687,32 @@ function formatTerminal(result) {
 }
 
 function formatMarkdown(result) {
-  let md = '# 📋 Code Review Report\n\n';
+  let md = '# 📋 Code Review Report / 代码审查报告\n\n';
 
-  if (result.summary) md += `**Summary:** ${result.summary}\n\n`;
-  if (result.score !== undefined) md += `**Score:** ${result.score}/100\n\n`;
+  if (result.summary) md += '**Summary / 摘要:** ' + result.summary + '\n\n';
+  if (result.score !== undefined) md += '**Score / 评分:** ' + result.score + '/100\n\n';
 
   if (result.issues?.length) {
-    md += `## Issues (${result.issues.length})\n\n`;
+    md += '## Issues / 问题 (' + result.issues.length + ')\n\n';
     for (const issue of result.issues) {
-      md += `- **${issue.type.toUpperCase()}**`;
-      if (issue.severity) md += ` [${issue.severity}]`;
-      md += `: ${issue.message}\n`;
-      if (issue.file) md += `  - File: \`${issue.file}\`\n`;
-      if (issue.line) md += `  - Line: ${issue.line}\n`;
-      if (issue.suggestion) md += `  - Suggestion: ${issue.suggestion}\n`;
+      const sevLabel = issue.severity === 'high' ? '严重' : issue.severity === 'medium' ? '中等' : issue.severity === 'low' ? '轻微' : '';
+      md += '- **' + issue.type.toUpperCase() + '**';
+      if (sevLabel) md += ' [' + sevLabel + ']';
+      md += ': ' + issue.message + '\n';
+      if (issue.file) md += '  - File / 文件: `' + issue.file + '`\n';
+      if (issue.line) md += '  - Line / 行: ' + issue.line + '\n';
+      if (issue.suggestion) md += '  - Suggestion / 建议: ' + issue.suggestion + '\n';
     }
   }
 
   if (result.suggestions?.length) {
-    md += `\n## Suggestions\n\n`;
-    for (const s of result.suggestions) md += `- 💡 ${s}\n`;
+    md += '\n## Suggestions / 改进建议\n\n';
+    for (const s of result.suggestions) md += '- 💡 ' + s + '\n';
   }
 
   if (result.praise?.length) {
-    md += `\n## 👍 Good Practices\n\n`;
-    for (const p of result.praise) md += `- ✅ ${p}\n`;
+    md += '\n## 👍 Good Practices / 好的实践\n\n';
+    for (const p of result.praise) md += '- ✅ ' + p + '\n';
   }
 
   return md;
