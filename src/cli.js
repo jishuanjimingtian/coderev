@@ -640,78 +640,117 @@ async function getGitDiff(repoPath, base = 'main', head) {
 }
 
 function formatTerminal(result) {
-  const lines = [];
-  lines.push(chalk.bold('\n📋 Code Review Report / 代码审查报告'));
-  lines.push('━'.repeat(50));
-
-  if (result.summary) {
-    lines.push('\n' + chalk.bold('Summary / 摘要:') + ' ' + result.summary);
-  }
-
+  // English section
+  const enLines = [];
+  enLines.push(chalk.bold('\n📋 Code Review Report'));
+  enLines.push('━'.repeat(50));
+  if (result.summary) enLines.push('\n' + chalk.bold('Summary:') + ' ' + result.summary);
   if (result.score !== undefined && result.score !== null) {
     const color = result.score >= 80 ? chalk.green : result.score >= 50 ? chalk.yellow : chalk.red;
-    lines.push('\n' + chalk.bold('Score / 评分:') + ' ' + color(result.score + '/100'));
+    enLines.push('\n' + chalk.bold('Score:') + ' ' + color(result.score + '/100'));
   }
-
   if (result.issues && result.issues.length > 0) {
-    lines.push('\n' + chalk.bold('Issues / 问题 (' + result.issues.length + '):'));
+    enLines.push('\n' + chalk.bold('Issues (' + result.issues.length + '):'));
     for (const issue of result.issues) {
-      const typeLabel =
-        issue.type === 'error' ? chalk.red('✖') :
-        issue.type === 'warning' ? chalk.yellow('⚠') : chalk.blue('ℹ');
-      const sevLabel = issue.severity === 'high' ? '严重' : issue.severity === 'medium' ? '中等' : issue.severity === 'low' ? '轻微' : '';
-      const severity = issue.severity ? ' [' + sevLabel + ']' : '';
-      lines.push('  ' + typeLabel + severity + ' ' + issue.message);
-      if (issue.file) lines.push('     ' + chalk.gray('File / 文件:') + ' ' + issue.file);
-      if (issue.line) lines.push('     ' + chalk.gray('Line / 行:') + ' ' + issue.line);
-      if (issue.suggestion) lines.push('     ' + chalk.gray('Suggestion / 建议:') + ' ' + issue.suggestion);
+      const typeLabel = issue.type === 'error' ? chalk.red('✖') : issue.type === 'warning' ? chalk.yellow('⚠') : chalk.blue('ℹ');
+      const sev = issue.severity ? ' [' + issue.severity + ']' : '';
+      enLines.push('  ' + typeLabel + sev + ' ' + issue.message);
+      if (issue.file) enLines.push('     ' + chalk.gray('File:') + ' ' + issue.file);
+      if (issue.line) enLines.push('     ' + chalk.gray('Line:') + ' ' + issue.line);
+      if (issue.suggestion) enLines.push('     ' + chalk.gray('Suggestion:') + ' ' + issue.suggestion);
     }
   }
-
   if (result.suggestions && result.suggestions.length > 0) {
-    lines.push('\n' + chalk.bold('Suggestions / 改进建议:'));
-    for (const s of result.suggestions) {
-      lines.push('  💡 ' + s);
-    }
+    enLines.push('\n' + chalk.bold('Suggestions:'));
+    for (const s of result.suggestions) enLines.push('  💡 ' + s);
   }
-
   if (result.praise && result.praise.length > 0) {
-    lines.push('\n' + chalk.bold('👍 Good Practices / 好的实践:'));
-    for (const p of result.praise) {
-      lines.push('  ✅ ' + p);
+    enLines.push('\n' + chalk.bold('👍 Good Practices:'));
+    for (const p of result.praise) enLines.push('  ✅ ' + p);
+  }
+  enLines.push('\n' + '━'.repeat(50));
+
+  // Chinese section
+  const cnLines = [];
+  cnLines.push(chalk.bold('\n📋 代码审查报告'));
+  cnLines.push('━'.repeat(50));
+  if (result.summary) cnLines.push('\n' + chalk.bold('摘要:') + ' ' + result.summary);
+  if (result.score !== undefined && result.score !== null) {
+    const color = result.score >= 80 ? chalk.green : result.score >= 50 ? chalk.yellow : chalk.red;
+    cnLines.push('\n' + chalk.bold('评分:') + ' ' + color(result.score + '/100'));
+  }
+  if (result.issues && result.issues.length > 0) {
+    cnLines.push('\n' + chalk.bold('问题 (' + result.issues.length + '):'));
+    for (const issue of result.issues) {
+      const typeLabel = issue.type === 'error' ? chalk.red('✖') : issue.type === 'warning' ? chalk.yellow('⚠') : chalk.blue('ℹ');
+      const sevMap = { high: '严重', medium: '中等', low: '轻微' };
+      const sevLabel = issue.severity && sevMap[issue.severity] ? ' [' + sevMap[issue.severity] + ']' : '';
+      cnLines.push('  ' + typeLabel + sevLabel + ' ' + issue.message);
+      if (issue.file) cnLines.push('     ' + chalk.gray('文件:') + ' ' + issue.file);
+      if (issue.line) cnLines.push('     ' + chalk.gray('行号:') + ' ' + issue.line);
+      if (issue.suggestion) cnLines.push('     ' + chalk.gray('建议:') + ' ' + issue.suggestion);
     }
   }
+  if (result.suggestions && result.suggestions.length > 0) {
+    cnLines.push('\n' + chalk.bold('改进建议:'));
+    for (const s of result.suggestions) cnLines.push('  💡 ' + s);
+  }
+  if (result.praise && result.praise.length > 0) {
+    cnLines.push('\n' + chalk.bold('👍 好的实践:'));
+    for (const p of result.praise) cnLines.push('  ✅ ' + p);
+  }
+  cnLines.push('\n' + '━'.repeat(50));
 
-  lines.push('\n' + '━'.repeat(50));
-  return lines.join('\n');
+  return enLines.join('\n') + '\n' + cnLines.join('\n');
 }
 
 function formatMarkdown(result) {
-  let md = '# 📋 Code Review Report / 代码审查报告\n\n';
-
-  if (result.summary) md += '**Summary / 摘要:** ' + result.summary + '\n\n';
-  if (result.score !== undefined) md += '**Score / 评分:** ' + result.score + '/100\n\n';
-
+  // English section
+  let md = '# 📋 Code Review Report\n\n';
+  if (result.summary) md += '**Summary:** ' + result.summary + '\n\n';
+  if (result.score !== undefined) md += '**Score:** ' + result.score + '/100\n\n';
   if (result.issues?.length) {
-    md += '## Issues / 问题 (' + result.issues.length + ')\n\n';
+    md += '## Issues (' + result.issues.length + ')\n\n';
     for (const issue of result.issues) {
-      const sevLabel = issue.severity === 'high' ? '严重' : issue.severity === 'medium' ? '中等' : issue.severity === 'low' ? '轻微' : '';
       md += '- **' + issue.type.toUpperCase() + '**';
-      if (sevLabel) md += ' [' + sevLabel + ']';
+      if (issue.severity) md += ' [' + issue.severity + ']';
       md += ': ' + issue.message + '\n';
-      if (issue.file) md += '  - File / 文件: `' + issue.file + '`\n';
-      if (issue.line) md += '  - Line / 行: ' + issue.line + '\n';
-      if (issue.suggestion) md += '  - Suggestion / 建议: ' + issue.suggestion + '\n';
+      if (issue.file) md += '  - File: \`' + issue.file + '\`\n';
+      if (issue.line) md += '  - Line: ' + issue.line + '\n';
+      if (issue.suggestion) md += '  - Suggestion: ' + issue.suggestion + '\n';
     }
   }
-
   if (result.suggestions?.length) {
-    md += '\n## Suggestions / 改进建议\n\n';
+    md += '\n## Suggestions\n\n';
     for (const s of result.suggestions) md += '- 💡 ' + s + '\n';
   }
-
   if (result.praise?.length) {
-    md += '\n## 👍 Good Practices / 好的实践\n\n';
+    md += '\n## 👍 Good Practices\n\n';
+    for (const p of result.praise) md += '- ✅ ' + p + '\n';
+  }
+
+  // Chinese section
+  md += '\n---\n\n';
+  md += '# 📋 代码审查报告\n\n';
+  if (result.summary) md += '**摘要:** ' + result.summary + '\n\n';
+  if (result.score !== undefined) md += '**评分:** ' + result.score + '/100\n\n';
+  if (result.issues?.length) {
+    md += '## 问题 (' + result.issues.length + ')\n\n';
+    for (const issue of result.issues) {
+      const sevMap = { high: '严重', medium: '中等', low: '轻微' };
+      const sevLabel = issue.severity && sevMap[issue.severity] ? ' [' + sevMap[issue.severity] + ']' : '';
+      md += '- **' + issue.type.toUpperCase() + '**' + sevLabel + ': ' + issue.message + '\n';
+      if (issue.file) md += '  - 文件: \`' + issue.file + '\`\n';
+      if (issue.line) md += '  - 行号: ' + issue.line + '\n';
+      if (issue.suggestion) md += '  - 建议: ' + issue.suggestion + '\n';
+    }
+  }
+  if (result.suggestions?.length) {
+    md += '\n## 改进建议\n\n';
+    for (const s of result.suggestions) md += '- 💡 ' + s + '\n';
+  }
+  if (result.praise?.length) {
+    md += '\n## 👍 好的实践\n\n';
     for (const p of result.praise) md += '- ✅ ' + p + '\n';
   }
 
