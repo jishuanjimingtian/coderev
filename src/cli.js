@@ -5,7 +5,7 @@ const chalk = require('chalk');
 const path = require('path');
 const pkg = require('../package.json');
 const { reviewDiff } = require('./reviewer');
-const { loadConfig } = require('./config');
+const { loadConfig, getApiKey } = require('./config');
 const { resolvePrRef, fetchPrDiff, postPrComment, resolveToken, fetchPrFiles, postInlineComments } = require('./github');
 
 program
@@ -21,7 +21,10 @@ program
   .option('--base <branch>', 'Base branch for diff (requires --repo)')
   .option('--head <branch>', 'Head branch for diff (requires --repo)')
   .option('-c, --config <path>', 'Path to config file')
-  .option('-o, --output <format>', 'Output format (markdown|json|terminal)', 'terminal')
+  .option('-o, --output <format>', 'Output format (markdown|json|terminal|html)', 'terminal')
+  .option('--ci', 'CI mode: exit with non-zero code if issues found')
+  .option('--incremental', 'Only review new/changed lines (skip unchanged context)')
+  .option('--interactive', 'Interactively review and apply fixes for each issue')
   .option('--pr <ref>', 'GitHub PR to review, e.g. owner/repo#42 or full URL')
   .option('--gl <ref>', 'GitLab MR to review, e.g. owner/repo!42 or full URL')
   .option('--gee <ref>', 'Gitee PR to review, e.g. owner/repo!42 or full URL')
@@ -173,6 +176,7 @@ program
 
       const result = await reviewDiff(diff, config, {
         noCache: options.noCache === false,
+        incremental: options.incremental || undefined,
         ignorePattern,
         audit: options.audit || undefined,
         single: options.single || undefined,
@@ -184,6 +188,8 @@ program
         output = JSON.stringify(result, null, 2);
       } else if (options.output === 'markdown') {
         output = formatMarkdown(result);
+      } else if (options.output === 'html') {
+        output = formatHtml(result);
       } else {
         output = formatTerminal(result);
       }
@@ -252,6 +258,78 @@ program
           }
         } else {
           console.error(chalk.yellow('⚠ No line-level issues to post inline'));
+        }
+      }
+
+      // ── Interactive Fix Mode ──
+      if (options.interactive && (result.issues || []).length > 0) {
+        const { generateFix } = require('./fixer');
+        const apiKey = getApiKey(config);
+        const readline = require('readline');
+        const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+        console.log(chalk.bold('\n🛠  Interactive Fix Mode / 交互式修复模式'));
+        console.log(chalk.yellow('   Review each issue and choose to apply a fix or skip.'));
+        const allPatches = [];
+        const processIssues = async (idx) => {
+          if (idx >= (result.issues || []).length) {
+            rl.close();
+            if (allPatches.length > 0) {
+              const patchesPath = require('path').join(require('os').tmpdir(), 'coderev-fixes.patch');
+              fs.writeFileSync(patchesPath, allPatches.map(p => p.patch).filter(Boolean).join('\n\n'), 'utf8');
+              console.log(chalk.green('\n✔ Fixes saved to: ' + patchesPath));
+              console.log(chalk.gray('   Apply with: git apply "' + patchesPath + '"'));
+            } else {
+              console.log(chalk.blue('   No fixes were applied.'));
+            }
+            return;
+          }
+          const issue = result.issues[idx];
+          const sevColor = issue.severity === 'high' ? chalk.red : issue.severity === 'medium' ? chalk.yellow : chalk.blue;
+          console.log(chalk.bold('\nIssue #' + (idx + 1) + ' of ' + result.issues.length));
+          console.log('  ' + sevColor('●') + ' [' + issue.severity + '] [' + issue.type + '] ' + issue.message);
+          if (issue.file) console.log('  ' + chalk.gray('File: ') + issue.file + (issue.line ? ':' + issue.line : ''));
+          if (issue.suggestion) console.log('  ' + chalk.gray('Suggestion: ') + issue.suggestion);
+          console.log('  ' + chalk.gray('Confidence: ') + (issue.confidence || 'N/A'));
+          const answer = await new Promise(resolve => {
+            rl.question(chalk.cyan('  [a]pply fix / [s]kip / [q]uit > '), resolve);
+          });
+          const cmd = (answer || '').trim().toLowerCase();
+          if (cmd === 'q') {
+            rl.close();
+            if (allPatches.length > 0) {
+              const patchesPath = require('path').join(require('os').tmpdir(), 'coderev-fixes.patch');
+              fs.writeFileSync(patchesPath, allPatches.map(p => p.patch).filter(Boolean).join('\n\n'), 'utf8');
+              console.log(chalk.green('\n✔ ' + allPatches.length + ' fixes saved to: ' + patchesPath));
+            }
+            return;
+          }
+          if (cmd === 'a') {
+            console.error(chalk.blue('   ↻ Generating fix...'));
+            try {
+              const fixResult = await generateFix(diff, issue, apiKey, config);
+              if (fixResult.patch) {
+                allPatches.push(fixResult);
+                console.log(chalk.green('   ✔ ' + (fixResult.explanation || 'Fix generated')));
+              } else {
+                console.log(chalk.yellow('   ⚠ Cannot auto-fix: ' + (fixResult.explanation || 'Unknown')));
+              }
+            } catch (err) {
+              console.log(chalk.red('   ✖ Error: ' + err.message));
+            }
+          }
+          setImmediate(() => processIssues(idx + 1));
+        };
+        processIssues(0);
+        return;
+      }
+
+      // ── CI Mode ──
+      if (options.ci && (result.issues || []).length > 0) {
+        const errorIssues = result.issues.filter(i => i.type === 'error');
+        const warningIssues = result.issues.filter(i => i.type === 'warning');
+        if (errorIssues.length > 0 || warningIssues.length > 0) {
+          console.error(chalk.red('✖ CI: Found issues (' + errorIssues.length + ' errors, ' + warningIssues.length + ' warnings)'));
+          process.exitCode = 1;
         }
       }
 
@@ -755,4 +833,97 @@ function formatMarkdown(result) {
   }
 
   return md;
+}
+
+
+/**
+ * Format review result as HTML report.
+ */
+function formatHtml(result) {
+  const sevColors = { high: '#e74c3c', medium: '#f39c12', low: '#3498db' };
+  const sevLabels = { high: 'High / 严重', medium: 'Medium / 中等', low: 'Low / 轻微' };
+  const typeLabels = { error: 'Error', warning: 'Warning', info: 'Info' };
+
+  let issuesHtml = '';
+  if (result.issues && result.issues.length > 0) {
+    for (const issue of result.issues) {
+      const color = sevColors[issue.severity] || '#95a5a6';
+      issuesHtml += `
+      <div class="issue" style="border-left: 4px solid ${color}; margin: 10px 0; padding: 12px; background: #f8f9fa; border-radius: 0 4px 4px 0;">
+        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+          <span style="background: ${color}; color: white; padding: 2px 8px; border-radius: 3px; font-size: 12px; font-weight: bold;">${sevLabels[issue.severity] || issue.severity}</span>
+          <span style="background: #e9ecef; padding: 2px 8px; border-radius: 3px; font-size: 12px;">${typeLabels[issue.type] || issue.type}</span>
+          ${issue.confidence ? `<span style="color: #6c757d; font-size: 12px;">Confidence: ${issue.confidence}/100</span>` : ''}
+        </div>
+        <div style="font-size: 14px; margin-bottom: 4px;">${issue.message}</div>
+        ${issue.file ? `<div style="color: #6c757d; font-size: 12px;">📁 ${issue.file}${issue.line ? ':' + issue.line : ''}</div>` : ''}
+        ${issue.suggestion ? `<div style="color: #27ae60; font-size: 13px; margin-top: 6px; padding: 8px; background: #eafaf1; border-radius: 3px;">💡 ${issue.suggestion}</div>` : ''}
+      </div>`;
+    }
+  } else {
+    issuesHtml = '<p style="color: #27ae60; text-align: center; padding: 20px;">✅ No issues found / 未发现问题</p>';
+  }
+
+  let suggestionsHtml = '';
+  if (result.suggestions && result.suggestions.length > 0) {
+    suggestionsHtml = '<h3>Suggestions / 改进建议</h3><ul>' + result.suggestions.map(s => '<li>' + s + '</li>').join('') + '</ul>';
+  }
+
+  let praiseHtml = '';
+  if (result.praise && result.praise.length > 0) {
+    praiseHtml = '<h3>👍 Good Practices / 好的实践</h3><ul>' + result.praise.map(p => '<li>✅ ' + p + '</li>').join('') + '</ul>';
+  }
+
+  const scoreVal = result.score || 0;
+  const scoreColor = scoreVal >= 80 ? '#27ae60' : scoreVal >= 50 ? '#f39c12' : '#e74c3c';
+  const scoreLabel = scoreVal >= 80 ? 'Good / 良好' : scoreVal >= 50 ? 'Needs Improvement / 需改进' : 'Poor / 差';
+
+  return `<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>coderev Review Report</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 900px; margin: 0 auto; padding: 20px; background: #fff; color: #333; }
+    h1 { border-bottom: 2px solid #eee; padding-bottom: 10px; }
+    .score-card { text-align: center; padding: 30px; background: #f8f9fa; border-radius: 8px; margin: 20px 0; }
+    .score-value { font-size: 48px; font-weight: bold; }
+    .score-label { font-size: 16px; color: #6c757d; margin-top: 5px; }
+    .summary { font-size: 16px; color: #555; margin: 15px 0; padding: 15px; background: #e8f4f8; border-radius: 6px; }
+    .stats { display: flex; gap: 20px; justify-content: center; margin: 20px 0; }
+    .stat { text-align: center; padding: 15px 25px; background: white; border: 1px solid #dee2e6; border-radius: 6px; }
+    .stat-value { font-size: 28px; font-weight: bold; }
+    .stat-label { font-size: 12px; color: #6c757d; text-transform: uppercase; }
+    h2 { margin-top: 30px; }
+    @media (prefers-color-scheme: dark) {
+      body { background: #1a1a2e; color: #e0e0e0; }
+      .score-card { background: #16213e; }
+      .summary { background: #0f3460; }
+      .issue { background: #16213e; }
+      .stat { background: #16213e; border-color: #0f3460; }
+    }
+  </style>
+</head>
+<body>
+  <h1>📋 coderev Review Report</h1>
+  <div class="score-card">
+    <div class="score-value" style="color: ${scoreColor}">${scoreVal}/100</div>
+    <div class="score-label">${scoreLabel}</div>
+  </div>
+  ${result.summary ? '<div class="summary">📄 ' + result.summary + '</div>' : ''}
+  <div class="stats">
+    <div class="stat"><div class="stat-value" style="color: #e74c3c">${result.issues ? result.issues.filter(i => i.type === 'error').length : 0}</div><div class="stat-label">Errors</div></div>
+    <div class="stat"><div class="stat-value" style="color: #f39c12">${result.issues ? result.issues.filter(i => i.type === 'warning').length : 0}</div><div class="stat-label">Warnings</div></div>
+    <div class="stat"><div class="stat-value" style="color: #3498db">${result.issues ? result.issues.filter(i => i.type === 'info').length : 0}</div><div class="stat-label">Info</div></div>
+    <div class="stat"><div class="stat-value" style="color: #9b59b6">${result.issues ? result.issues.length : 0}</div><div class="stat-label">Total</div></div>
+  </div>
+  <h2>Issues / 问题</h2>
+  ${issuesHtml}
+  ${suggestionsHtml}
+  ${praiseHtml}
+  <hr style="margin-top: 40px; border: none; border-top: 1px solid #eee;">
+  <p style="text-align: center; color: #6c757d; font-size: 12px;">Generated by coderev</p>
+</body>
+</html>`;
 }

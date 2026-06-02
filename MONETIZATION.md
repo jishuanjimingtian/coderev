@@ -1,9 +1,9 @@
 # coderev 变现计划
 
-## Phase 1: 开源知名 + 赞助（当前）
-- [ ] README 添加 GitHub Sponsors 按钮
-- [ ] README 中展示使用效果截图/GIF
-- [ ] 发布到 producthunt / 开发者社区
+## ✅ Phase 1: 开源知名 + 赞助（当前）
+- [x] README 添加 GitHub Sponsors 按钮
+- [x] README 中展示使用效果截图/GIF
+- [ ] 发布到 Product Hunt / 开发者社区
 - [ ] 在开源项目 README 中加"Built with coderev"备注
 
 ## Phase 2: 增值功能

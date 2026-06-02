@@ -558,4 +558,4 @@ function loadProjectHint() {
   return '';
 }
 
-module.exports = { reviewDiff, parseReviewResponse };
+module.exports = { reviewDiff, parseReviewResponse, callAI };

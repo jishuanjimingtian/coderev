@@ -34,11 +34,11 @@
 - [x] `--audit` 安全审计模式
 - [x] 与 `.coderevhint` / CLAUDE.md 项目规范兼容
 
-## 🌟 v0.4.0 — 体验提升
-- [ ] 交互式修复（--interactive）
-- [ ] 增量审查（只审查 diff 新增部分）
-- [ ] HTML 报告输出
-- [ ] CI 模式（exit code 可配置）
+## ✅ v0.4.0 — 体验提升（当前）
+- [x] 交互式修复（--interactive）
+- [x] 增量审查（只审查 diff 新增部分）
+- [x] HTML 报告输出（--output html）
+- [x] CI 模式（--ci，exit code 1）
 - [ ] 多项目配置继承
 - [ ] Git blame 上下文分析（智能区分新问题/预存问题）
 
