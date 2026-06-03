@@ -48,7 +48,7 @@ jobs:
           DEEPSEEK_API_KEY: ${{ vars.DEEPSEEK_API_KEY }}
           GITHUB_TOKEN: ${{ github.token }}
         run: |
-          cat /tmp/pr_diff.diff | coderev review --output markdown > /tmp/review_output.md 2>/tmp/review_stderr.txt
+          cat /tmp/pr_diff.diff | coderev review --output markdown > /tmp/review_output.md
           echo "review=$(cat /tmp/review_output.md)" >> $GITHUB_OUTPUT
 
       - name: Post review comment
