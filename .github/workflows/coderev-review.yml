@@ -4,7 +4,7 @@
 # as a PR comment.
 #
 # Setup:
-# 1. Add your DEEPSEEK_API_KEY to GitHub Secrets
+# 1. Add your DEEPSEEK_API_KEY to GitHub Variables (Settings > Variables > Actions)
 # 2. (Optional) Add GITHUB_TOKEN if you use a PAT with wider scope
 #    (defaults to the built-in GITHUB_TOKEN which has read-only for forks)
 
@@ -45,10 +45,22 @@ jobs:
       - name: Run coderev review
         id: review
         env:
-          DEEPSEEK_API_KEY: ${{ vars.DEEPSEEK_API_KEY }}
-          GITHUB_TOKEN: ${{ github.token }}
+          DEEPSEEK_API_KEY: *** vars.DEEPSEEK_API_KEY }}
+          GITHUB_TOKEN: *** github.token }}
         run: |
-          cat /tmp/pr_diff.diff | coderev review --output markdown > /tmp/review_output.md
+          echo "=== DIFF SIZE ==="
+          wc -c /tmp/pr_diff.diff
+          echo "=== RUNNING CODEREV ==="
+          cat /tmp/pr_diff.diff | coderev review --output markdown > /tmp/review_output.md 2>/tmp/review_stderr.txt
+          CODEREV_EXIT=$?
+          echo "=== CODEREV EXIT CODE: $CODEREV_EXIT ==="
+          if [ -s /tmp/review_stderr.txt ]; then
+            echo "=== STDERR ==="
+            cat /tmp/review_stderr.txt
+          fi
+          echo "=== STDOUT (first 500 chars) ==="
+          head -c 500 /tmp/review_output.md
+          echo ""
           echo "review=$(cat /tmp/review_output.md)" >> $GITHUB_OUTPUT
 
       - name: Post review comment
