@@ -45,8 +45,8 @@ jobs:
       - name: Run coderev review
         id: review
         env:
-          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN || github.token }}
+          DEEPSEEK_API_KEY: ${{ vars.DEEPSEEK_API_KEY }}
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           cat /tmp/pr_diff.diff | coderev review --output markdown > /tmp/review_output.md 2>/tmp/review_stderr.txt
           echo "review=$(cat /tmp/review_output.md)" >> $GITHUB_OUTPUT
