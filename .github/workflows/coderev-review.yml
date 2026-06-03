@@ -1,13 +1,3 @@
-# coderev — Automated PR Review
-#
-# This workflow runs coderev on every pull request and posts the review
-# as a PR comment.
-#
-# Setup:
-# 1. Add your DEEPSEEK_API_KEY to GitHub Variables (Settings > Variables > Actions)
-# 2. (Optional) Add GITHUB_TOKEN if you use a PAT with wider scope
-#    (defaults to the built-in GITHUB_TOKEN which has read-only for forks)
-
 name: coderev-review
 
 on:
@@ -23,13 +13,11 @@ jobs:
   review:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: '20'
 
@@ -46,22 +34,11 @@ jobs:
         id: review
         env:
           DEEPSEEK_API_KEY: ${{ vars.DEEPSEEK_API_KEY }}
-          GITHUB_TOKEN: ${{ github.token }}
         run: |
-          echo "=== DIFF SIZE ==="
-          wc -c /tmp/pr_diff.diff
-          echo "=== RUNNING CODEREV ==="
-          cat /tmp/pr_diff.diff | coderev review --output markdown > /tmp/review_output.md 2>/tmp/review_stderr.txt || true
-          CODEREV_EXIT=$?
-          echo "=== CODEREV EXIT CODE: $CODEREV_EXIT ==="
-          if [ -s /tmp/review_stderr.txt ]; then
-            echo "=== STDERR ==="
-            cat /tmp/review_stderr.txt
-          fi
-          echo "=== STDOUT (first 500 chars) ==="
-          head -c 500 /tmp/review_output.md
-          echo ""
-          echo "review=$(cat /tmp/review_output.md)" >> $GITHUB_OUTPUT
+          cat /tmp/pr_diff.diff | coderev review --output markdown > /tmp/review_output.md
+          echo "review<<EOF" >> $GITHUB_OUTPUT
+          cat /tmp/review_output.md >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
 
       - name: Post review comment
         uses: actions/github-script@v7
@@ -69,23 +46,12 @@ jobs:
           REVIEW: ${{ steps.review.outputs.review }}
         with:
           script: |
-            const review = process.env.REVIEW;
             const { owner, repo } = context.repo;
             const issue_number = context.issue.number;
-
-            const comments = await github.rest.issues.listComments({
-              owner, repo, issue_number,
-            });
-
-            for (const comment of comments.data) {
-              if (comment.user.type === 'Bot' && comment.body.includes('Code Review Report')) {
-                await github.rest.issues.deleteComment({
-                  owner, repo,
-                  comment_id: comment.id,
-                });
+            const comments = await github.rest.issues.listComments({ owner, repo, issue_number });
+            for (const c of comments.data) {
+              if (c.user.type === 'Bot' && c.body?.includes('Code Review Report')) {
+                await github.rest.issues.deleteComment({ owner, repo, comment_id: c.id });
               }
             }
-
-            await github.rest.issues.createComment({
-              owner, repo, issue_number, body: review,
-            });
+            await github.rest.issues.createComment({ owner, repo, issue_number, body: process.env.REVIEW });
