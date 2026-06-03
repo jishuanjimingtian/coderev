@@ -710,6 +710,27 @@ build/
     }
   });
 
+// ── Serve (GitHub App) ────────────────────────────────────────────
+program
+  .command('serve')
+  .description('Start GitHub App webhook server for automatic PR review')
+  .option('-p, --port <number>', 'Server port (default: 3000)')
+  .option('--webhook-secret <secret>', 'GitHub App webhook secret')
+  .option('--app-id <id>', 'GitHub App ID')
+  .option('--private-key <key>', 'GitHub App private key (PEM)')
+  .option('--review-mode <mode>', 'Review output: comment (default) | inline | check')
+  .option('--auto-approve', 'Auto-approve PRs with no issues')
+  .option('--min-confidence <number>', 'Minimum confidence threshold 0-100 (default: 60)')
+  .action(async (options) => {
+    try {
+      const { serveCommand } = require('./github-app');
+      await serveCommand(options);
+    } catch (err) {
+      console.error(chalk.red(`✖ ${err.message}`));
+      process.exit(1);
+    }
+  });
+
 program.parse(process.argv);
 
 // ── Helpers ───────────────────────────────────────────────────

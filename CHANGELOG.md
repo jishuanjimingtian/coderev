@@ -16,6 +16,19 @@
   - 支持 `provider` / `model` / `min-confidence` / `blame` / `inline` 等参数
   - 自动清理上一次 coderev 评论，避免刷屏
 
+## [v1.0.18] — 2026-06-03
+
+### ✨ 新功能（v0.5.0 App 阶段）
+
+- **GitHub App 自动审查**：`coderev serve` 启动 webhook 服务器，自动监听 PR 事件
+  - 支持 `pull_request.opened / synchronize / reopened` 事件
+  - 自动获取安装 token（JWT 认证）
+  - 审查结果作为 PR comment + commit status 发布
+  - 支持三种审查模式：comment / inline / check
+  - 可选 auto-approve（无问题的 PR 自动 approve）
+  - 跳过 draft PR 和 bot PR
+- **部署文档**：`docs/github-app.md` 含创建 App、部署到 Railway/Docker/PM2 的详细步骤
+
 ---
 
 ## [v1.0.16] — 2026-06-02

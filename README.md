@@ -26,6 +26,7 @@
   - [coderev cache（缓存管理）](#coderev-cache缓存管理)
   - [coderev config（配置管理）](#coderev-config配置管理)
   - [coderev init（初始化）](#coderev-init初始化)
+  - [coderev serve（GitHub App 自动审查）](#coderev-servegithub-app-自动审查)
 - [配置详解](#配置详解)
 - [平台集成](#平台集成)
 - [CI/CD 集成](#cicd-集成)
@@ -434,6 +435,49 @@ coderev init
 ```
 
 如果项目已有配置文件，执行 `coderev init` 会提示是否覆盖。
+
+---
+
+### coderev serve（GitHub App 自动审查）
+
+**作用**：启动 webhook 服务器，监听 GitHub App 的 pull_request 事件，自动对每个新 PR 进行代码审查。
+
+**适用场景**：团队仓库每个 PR 自动审查 / 开源项目自动反馈 / CI/CD 增强
+
+**参数**：
+
+| 参数 | 说明 | 示例 |
+|------|------|------|
+| `--port` | 服务器端口（默认 3000） | `--port 8080` |
+| `--app-id` | GitHub App ID | `--app-id 123456` |
+| `--private-key` | GitHub App 私钥 PEM | `--private-key "$(cat key.pem)"` |
+| `--webhook-secret` | Webhook 签名密钥 | `--webhook-secret xxx` |
+| `--review-mode` | 审查模式（comment/inline/check） | `--review-mode inline` |
+| `--auto-approve` | 无问题 PR 自动 approve | `--auto-approve` |
+| `--min-confidence` | 最低置信度阈值 | `--min-confidence 70` |
+
+**示例**：
+
+```bash
+# 启动服务器
+coderev serve --app-id 123456 --webhook-secret mysecret --private-key "$(cat /path/to/key.pem)"
+
+# 使用环境变量
+GITHUB_APP_ID=123456 GITHUB_APP_WEBHOOK_SECRET=mysecret coderev serve
+```
+
+**事件处理**：
+- `pull_request.opened` — 新 PR 自动审查
+- `pull_request.synchronize` — PR 更新时重新审查
+- `pull_request.reopened` — 重新审查
+- Draft PR 和 Bot PR 默认跳过
+
+**输出**：审查完成后自动：
+1. 发布 PR review comment（Markdown 格式）
+2. 设置 commit status（pending → success/failure/neutral）
+3. 可选 auto-approve（无问题的 PR）
+
+> 完整部署指南见 [docs/github-app.md](docs/github-app.md)
 
 ---
 

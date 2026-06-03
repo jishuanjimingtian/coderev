@@ -43,7 +43,7 @@
 - [x] Git blame 上下文分析（--blame，智能区分新问题/预存问题）
 
 ## 🔮 v0.5.0 — 协作与变现（当前）
-- [ ] GitHub App（自动审查 PR）
+- [x] GitHub App（自动审查 PR）— `coderev serve`
 - [x] GitHub Actions Action 原生集成（action.yml）
 - [ ] SaaS 版：云端规则仓库
 - [ ] 团队协作：共享规则、审查历史

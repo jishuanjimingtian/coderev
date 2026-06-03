@@ -23,7 +23,7 @@
 - [x] Git blame 上下文分析（--blame）
 
 ## 当前迭代 (v0.5.0) 
-- [ ] GitHub App（自动审查 PR）
+- [x] GitHub App（自动审查 PR）— `coderev serve`
 - [x] GitHub Actions Action 原生集成
 - [ ] GitHub Sponsors 正式开通
 - [ ] 开源社区贡献指南
