@@ -9,8 +9,8 @@ const CONFIG_FILES = [
 
 const DEFAULTS = {
   ai: {
-    provider: 'openai',
-    model: 'gpt-4o',
+    provider: 'deepseek',
+    model: 'deepseek-chat',
     temperature: 0.3,
     maxTokens: 4096,
   },
