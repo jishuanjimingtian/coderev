@@ -804,6 +804,9 @@ A：可以，审查时加 `--no-cache` 参数即可跳过缓存。
 ### Q：怎么给 coderev 加自己的规则？
 A：在 `.coderevrc.json` 的 `rules.custom` 数组中添加。详见上方「自定义规则」章节。
 
+
+
+
 ---
 ## License
 
