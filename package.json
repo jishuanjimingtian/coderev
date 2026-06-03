@@ -1,6 +1,6 @@
 {
   "name": "coderev-cli",
-  "version": "1.0.16",
+  "version": "1.0.17",
   "description": "Multi-agent AI code review for git -- parallel agents with confidence scoring",
   "main": "src/index.js",
   "bin": {
