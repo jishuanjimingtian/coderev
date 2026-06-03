@@ -38,7 +38,7 @@ jobs:
           OPENAI_API_KEY: ${{ vars.DEEPSEEK_API_KEY }}
         run: |
           set +e
-          cat /tmp/pr_diff.diff | coderev review --output markdown --single > /tmp/review_output.md 2>/tmp/review_stderr.txt
+          cat /tmp/pr_diff.diff | coderev review --output markdown > /tmp/review_output.md 2>/tmp/review_stderr.txt
           EXIT_CODE=$?
           echo "exit_code=$EXIT_CODE" >> $GITHUB_OUTPUT
           if [ $EXIT_CODE -ne 0 ]; then
