@@ -9,8 +9,9 @@ const CONFIG_FILES = [
 
 const DEFAULTS = {
   ai: {
-    provider: 'deepseek',
-    model: 'deepseek-chat',
+    provider: process.env.DEEPSEEK_API_KEY ? 'deepseek' : 'openai',
+    model: process.env.DEEPSEEK_API_KEY ? 'deepseek-chat' : 'gpt-4o',
+    apiKeyEnv: process.env.DEEPSEEK_API_KEY ? 'DEEPSEEK_API_KEY' : 'OPENAI_API_KEY',
     temperature: 0.3,
     maxTokens: 4096,
   },
