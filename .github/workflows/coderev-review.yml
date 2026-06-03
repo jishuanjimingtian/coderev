@@ -35,6 +35,7 @@ jobs:
         shell: bash
         env:
           DEEPSEEK_API_KEY: ${{ vars.DEEPSEEK_API_KEY }}
+          OPENAI_API_KEY: ${{ vars.DEEPSEEK_API_KEY }}
         run: |
           set +e
           cat /tmp/pr_diff.diff | coderev review --output markdown --single > /tmp/review_output.md 2>/tmp/review_stderr.txt
