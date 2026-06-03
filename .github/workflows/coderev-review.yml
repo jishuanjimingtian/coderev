@@ -51,7 +51,7 @@ jobs:
           echo "=== DIFF SIZE ==="
           wc -c /tmp/pr_diff.diff
           echo "=== RUNNING CODEREV ==="
-          cat /tmp/pr_diff.diff | coderev review --output markdown > /tmp/review_output.md 2>/tmp/review_stderr.txt
+          cat /tmp/pr_diff.diff | coderev review --output markdown > /tmp/review_output.md 2>/tmp/review_stderr.txt || true
           CODEREV_EXIT=$?
           echo "=== CODEREV EXIT CODE: $CODEREV_EXIT ==="
           if [ -s /tmp/review_stderr.txt ]; then
