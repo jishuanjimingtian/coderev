@@ -34,7 +34,7 @@ jobs:
           node-version: '20'
 
       - name: Install coderev
-        run: npm install -g coderev
+        run: npm install -g coderev-cli
 
       - name: Generate diff
         id: diff

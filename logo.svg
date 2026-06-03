@@ -1,0 +1,49 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#1e293b"/>
+      <stop offset="100%" stop-color="#0f172a"/>
+    </linearGradient>
+    <linearGradient id="border" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#6366f1"/>
+      <stop offset="50%" stop-color="#06b6d4"/>
+      <stop offset="100%" stop-color="#10b981"/>
+    </linearGradient>
+    <linearGradient id="code" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#818cf8"/>
+      <stop offset="100%" stop-color="#22d3ee"/>
+    </linearGradient>
+    <linearGradient id="check" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#10b981"/>
+      <stop offset="100%" stop-color="#6ee7b7"/>
+    </linearGradient>
+    <linearGradient id="d1" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#6366f1"/>
+      <stop offset="100%" stop-color="#a78bfa"/>
+    </linearGradient>
+    <linearGradient id="d2" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#f59e0b"/>
+      <stop offset="100%" stop-color="#f87171"/>
+    </linearGradient>
+  </defs>
+
+  <rect x="20" y="20" width="472" height="472" rx="100" fill="url(#bg)" stroke="url(#border)" stroke-width="4"/>
+
+  <!-- </> as separate paths instead of text to avoid font/encoding issues -->
+  <!-- Left bracket < -->
+  <path d="M180 220 L130 256 L180 292" fill="none" stroke="url(#code)" stroke-width="20" stroke-linecap="round" stroke-linejoin="round"/>
+  
+  <!-- Right bracket > -->
+  <path d="M332 220 L382 256 L332 292" fill="none" stroke="url(#code)" stroke-width="20" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- Slash / -->
+  <line x1="295" y1="180" x2="217" y2="340" stroke="url(#code)" stroke-width="18" stroke-linecap="round"/>
+
+  <!-- Checkmark -->
+  <polyline points="160,280 220,350 370,190" fill="none" stroke="url(#check)" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- 3 dots -->
+  <circle cx="185" cy="105" r="16" fill="url(#d1)"/>
+  <circle cx="230" cy="105" r="16" fill="url(#d2)"/>
+  <circle cx="275" cy="105" r="16" fill="url(#check)"/>
+</svg>

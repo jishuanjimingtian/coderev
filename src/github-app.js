@@ -35,7 +35,7 @@ function loadAppConfig() {
   return {
     // Required
     appId: process.env.GITHUB_APP_ID || appConfig.appId,
-    privateKey: process.env.GITHUB_APP_PRIVATE_KEY || appConfig.privateKey,
+    privateKey: process.env.GITHUB_APP_PRIVATE_KEY || process.env.GITHUB_APP_PRIVATE_KEY_FILE ? require('fs').readFileSync(process.env.GITHUB_APP_PRIVATE_KEY_FILE, 'utf8') : appConfig.privateKey,
     webhookSecret: process.env.GITHUB_APP_WEBHOOK_SECRET || appConfig.webhookSecret || '',
 
     // Optional
