@@ -45,7 +45,7 @@ jobs:
       - name: Run coderev review
         id: review
         env:
-          DEEPSEEK_API_KEY: *** vars.DEEPSEEK_API_KEY }}
+          OPENAI_API_KEY: *** vars.DEEPSEEK_API_KEY }}
           GITHUB_TOKEN: *** github.token }}
         run: |
           echo "=== DIFF SIZE ==="
