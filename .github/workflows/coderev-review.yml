@@ -45,8 +45,8 @@ jobs:
       - name: Run coderev review
         id: review
         env:
-          DEEPSEEK_API_KEY: *** vars.DEEPSEEK_API_KEY }}
-          GITHUB_TOKEN: *** github.token }}
+          DEEPSEEK_API_KEY: ${{ vars.DEEPSEEK_API_KEY }}
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           echo "=== DIFF SIZE ==="
           wc -c /tmp/pr_diff.diff
@@ -73,7 +73,6 @@ jobs:
             const { owner, repo } = context.repo;
             const issue_number = context.issue.number;
 
-            // Delete previous coderev comments
             const comments = await github.rest.issues.listComments({
               owner, repo, issue_number,
             });
@@ -87,10 +86,6 @@ jobs:
               }
             }
 
-            // Post new review
             await github.rest.issues.createComment({
-              owner,
-              repo,
-              issue_number,
-              body: review,
+              owner, repo, issue_number, body: review,
             });
