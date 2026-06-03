@@ -1,0 +1,161 @@
+# coderev - AI-powered code review for GitHub Actions
+#
+# This action automatically reviews every pull request using coderev-cli.
+# It runs 3 parallel AI agents (Security / Bug / Quality) with confidence scoring.
+#
+# Usage:
+#
+#   steps:
+#     - uses: jishuanjimingtian/coderev@v1
+#       with:
+#         github-token: ${{ secrets.GITHUB_TOKEN }}
+#         api-key: ${{ secrets.DEEPSEEK_API_KEY }}
+#         provider: deepseek
+#
+# Inputs:
+#   github-token  (required)  GitHub token for posting PR comments
+#   api-key       (required)  AI provider API key (DeepSeek, OpenAI, etc.)
+#   provider      (optional)  AI provider: deepseek | openai (default: "deepseek")
+#   model         (optional)  Model name (default: "deepseek-chat")
+#   min-confidence (optional) Minimum confidence threshold 0-100 (default: "60")
+#   mode          (optional)  Review mode: full | security | bugs | quality (default: "full")
+#   blame         (optional)  Enable git blame context analysis: true | false (default: "false")
+#   inline        (optional)  Post inline code comments: true | false (default: "false")
+
+name: 'coderev'
+description: 'Multi-agent AI code review for pull requests — Security / Bug / Quality with confidence scoring'
+author: 'coderev team'
+
+branding:
+  icon: 'check-circle'
+  color: 'blue'
+
+inputs:
+  github-token:
+    description: 'GitHub token for API access'
+    required: true
+    default: ${{ github.token }}
+  api-key:
+    description: 'API key for AI provider (DeepSeek, OpenAI, etc.)'
+    required: true
+  provider:
+    description: 'AI provider: deepseek | openai | custom'
+    required: false
+    default: 'deepseek'
+  model:
+    description: 'AI model name'
+    required: false
+    default: 'deepseek-chat'
+  min-confidence:
+    description: 'Minimum confidence threshold 0-100'
+    required: false
+    default: '60'
+  mode:
+    description: 'Review mode: full | security | bugs | quality'
+    required: false
+    default: 'full'
+  blame:
+    description: 'Enable git blame context analysis (true/false)'
+    required: false
+    default: 'false'
+  inline:
+    description: 'Post inline code comments (true/false)'
+    required: false
+    default: 'false'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+
+    - name: Install coderev-cli
+      shell: bash
+      run: npm install -g coderev-cli
+
+    - name: Generate PR diff
+      shell: bash
+      id: diff
+      run: |
+        git diff origin/${{ github.base_ref }}...HEAD > /tmp/coderev-pr-diff.diff
+        echo "diff_size=$(wc -c < /tmp/coderev-pr-diff.diff)" >> $GITHUB_OUTPUT
+
+    - name: Build CLI arguments
+      shell: bash
+      id: args
+      run: |
+        ARGS="--output markdown"
+        if [ "${{ inputs.mode }}" != "full" ]; then
+          ARGS="$ARGS --${{ inputs.mode }}"
+        fi
+        if [ "${{ inputs.blame }}" = "true" ]; then
+          ARGS="$ARGS --blame"
+        fi
+        if [ "${{ inputs.inline }}" = "true" ]; then
+          ARGS="$ARGS --inline"
+        fi
+        echo "cli_args=$ARGS" >> $GITHUB_OUTPUT
+
+    - name: Run coderev review
+      shell: bash
+      id: review
+      env:
+        DEEPSEEK_API_KEY: ${{ inputs.api-key }}
+        OPENAI_API_KEY: ${{ inputs.api-key }}
+      run: |
+        cat /tmp/coderev-pr-diff.diff | coderev review ${{ steps.args.outputs.cli_args }} > /tmp/review_output.md 2>/tmp/review_stderr.txt
+        echo "review_status=success" >> $GITHUB_OUTPUT
+
+    - name: Post review comment
+      uses: actions/github-script@v7
+      env:
+        REVIEW_CONTENT: ${{ steps.review.outputs.review || '' }}
+        BLAME_FLAG: ${{ inputs.blame }}
+      with:
+        script: |
+          const reviewContent = process.env.REVIEW_CONTENT || '';
+          const hasContent = reviewContent.trim().length > 0;
+
+          if (!hasContent) {
+            // Try reading from file
+            const fs = require('fs');
+            try {
+              const fileContent = fs.readFileSync('/tmp/review_output.md', 'utf8');
+              if (fileContent.trim().length > 0) {
+                await postReview(fileContent);
+                return;
+              }
+            } catch {}
+            await postReview('⚠️ coderev ran but produced no output. Check workflow logs.');
+            return;
+          }
+
+          await postReview(reviewContent);
+
+          async function postReview(body) {
+            const { owner, repo } = context.repo;
+            const issue_number = context.issue.number;
+
+            // Delete previous coderev comments
+            const comments = await github.rest.issues.listComments({
+              owner, repo, issue_number,
+            });
+
+            for (const comment of comments.data) {
+              if (comment.user.type === 'Bot' &&
+                  (comment.body.includes('Code Review Report') ||
+                   comment.body.includes('代码审查报告') ||
+                   comment.body.includes('coderev'))) {
+                await github.rest.issues.deleteComment({
+                  owner, repo, comment_id: comment.id,
+                });
+              }
+            }
+
+            // Post new review
+            await github.rest.issues.createComment({
+              owner, repo, issue_number, body,
+            });
+          }

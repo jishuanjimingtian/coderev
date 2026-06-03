@@ -34,20 +34,21 @@
 - [x] `--audit` 安全审计模式
 - [x] 与 `.coderevhint` / CLAUDE.md 项目规范兼容
 
-## ✅ v0.4.0 — 体验提升（当前）
+## ✅ v0.4.0 — 体验提升（已完成）
 - [x] 交互式修复（--interactive）
 - [x] 增量审查（只审查 diff 新增部分）
 - [x] HTML 报告输出（--output html）
 - [x] CI 模式（--ci，exit code 1）
-- [ ] 多项目配置继承
-- [ ] Git blame 上下文分析（智能区分新问题/预存问题）
+- [x] 多项目配置继承（嵌套 .coderevrc.json 查找 + 深度合并）
+- [x] Git blame 上下文分析（--blame，智能区分新问题/预存问题）
 
-## 🔮 v0.5.0 — 协作与变现
+## 🔮 v0.5.0 — 协作与变现（当前）
 - [ ] GitHub App（自动审查 PR）
+- [x] GitHub Actions Action 原生集成（action.yml）
 - [ ] SaaS 版：云端规则仓库
 - [ ] 团队协作：共享规则、审查历史
 - [ ] VS Code 扩展
-- [ ] CI/CD 原生集成（GitHub Actions、GitLab CI）
+- [ ] GitLab CI 原生集成
 
 ## 💎 远期
 - [ ] 多语言 AST 级别分析

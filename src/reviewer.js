@@ -2,6 +2,7 @@ const { loadConfig, getApiKey } = require('./config');
 const { cacheKey, getCached, setCached } = require('./cache');
 const { recordReview } = require('./stats');
 const { getRuleDescriptions } = require('./rules');
+const { analyzeDiffContext, tagIssuesWithBlame } = require('./blame');
 
 // ── 多智能体并行审查 ──
 
@@ -217,6 +218,7 @@ async function runParallelAgents(apiKey, config, prompts) {
  * @param {string} [options.context] - Previous review context (for incremental reviews)
  * @param {string} [options.ignorePattern] - File patterns to ignore
  * @param {number} [options.minConfidence] - Minimum confidence threshold (default: 60)
+ * @param {boolean} [options.blame] - Enable git blame context analysis
  * @returns {Promise<object>} Review result with issues, suggestions, score, etc.
  */
 async function reviewDiff(diff, config, options = {}) {
@@ -289,6 +291,23 @@ async function reviewDiff(diff, config, options = {}) {
     // Generate overall suggestions from top issues
     if (issues.length > 0) {
       result.suggestions = issues.slice(0, 3).map(i => i.suggestion).filter(Boolean);
+    }
+  }
+
+  // ── Git blame context analysis ──
+  if (options.blame && result.issues && result.issues.length > 0) {
+    try {
+      const fileContexts = await analyzeDiffContext(diff);
+      result.issues = tagIssuesWithBlame(result.issues, fileContexts);
+      result._blameContext = {
+        filesAnalyzed: fileContexts.length,
+        newIssues: result.issues.filter(i => i.isNew === true).length,
+        preExistingIssues: result.issues.filter(i => i.isNew === false).length,
+        unknownIssues: result.issues.filter(i => i.isNew === null).length,
+      };
+    } catch (err) {
+      // Blame analysis is a best-effort enhancement; don't fail the review
+      result._blameContext = { error: err.message };
     }
   }
 

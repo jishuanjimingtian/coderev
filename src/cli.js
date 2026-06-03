@@ -42,6 +42,7 @@ program
   .option('--single', 'Use single-agent mode (legacy, no parallel review)')
   .option('--min-confidence <number>', 'Minimum confidence threshold 0-100 (default: 60)', '60')
   .option('--agents <list>', 'Comma-separated agent list: security,bugs,quality')
+  .option('--blame', 'Enable git blame context analysis to distinguish new vs pre-existing issues')
   .action(async (options) => {
     try {
       const config = loadConfig(options.config);
@@ -181,6 +182,7 @@ program
         audit: options.audit || undefined,
         single: options.single || undefined,
         minConfidence: parseInt(options.minConfidence) || undefined,
+        blame: options.blame || undefined,
       });
 
       let output;
@@ -659,7 +661,13 @@ program
         format: 'terminal',
         includeScore: true,
       },
+      inheritance: {
+        enabled: true,
+        strategy: 'deep-merge',  // 'deep-merge' | 'replace'
+      },
     };
+    console.log(chalk.blue('ℹ 提示: coderev 支持从父目录继承配置。将 .coderevrc.json'));
+    console.log(chalk.blue('   放在项目根目录，子项目可只设覆盖字段。'));
     const configPath = path.join(process.cwd(), '.coderevrc.json');
     fs.writeFileSync(configPath, JSON.stringify(defaultConfig, null, 2));
     console.log(chalk.green(`✔ Default config created at ${configPath}`));
@@ -747,6 +755,18 @@ function formatTerminal(result) {
     cnLines.push('\n' + chalk.bold('👍 好的实践:'));
     for (const p of result.praise) cnLines.push('  ✅ ' + p);
   }
+  if (result._blameContext) {
+    const bc = result._blameContext;
+    cnLines.push('\n' + chalk.bold('Git Blame 上下文分析:'));
+    if (bc.error) {
+      cnLines.push('  ' + chalk.yellow('⚠ 分析出错: ' + bc.error));
+    } else {
+      cnLines.push('  ' + chalk.green('● 新增问题: ') + chalk.bold(bc.newIssues));
+      cnLines.push('  ' + chalk.gray('○ 已有问题: ') + chalk.bold(bc.preExistingIssues));
+      if (bc.unknownIssues > 0) cnLines.push('  ' + chalk.blue('? 无法判断: ') + chalk.bold(bc.unknownIssues));
+      cnLines.push('  ' + chalk.cyan('  分析文件数: ') + bc.filesAnalyzed);
+    }
+  }
   cnLines.push('\n' + '━'.repeat(50));
 
   // English section
@@ -776,6 +796,18 @@ function formatTerminal(result) {
   if (result.praise && result.praise.length > 0) {
     enLines.push('\n' + chalk.bold('👍 Good Practices:'));
     for (const p of result.praise) enLines.push('  ✅ ' + p);
+  }
+  if (result._blameContext) {
+    const bc = result._blameContext;
+    enLines.push('\n' + chalk.bold('Git Blame Context:'));
+    if (bc.error) {
+      enLines.push('  ' + chalk.yellow('⚠ Error: ' + bc.error));
+    } else {
+      enLines.push('  ' + chalk.green('● New issues: ') + chalk.bold(bc.newIssues));
+      enLines.push('  ' + chalk.gray('○ Pre-existing: ') + chalk.bold(bc.preExistingIssues));
+      if (bc.unknownIssues > 0) enLines.push('  ' + chalk.blue('? Unknown: ') + chalk.bold(bc.unknownIssues));
+      enLines.push('  ' + chalk.cyan('  Files analyzed: ') + bc.filesAnalyzed);
+    }
   }
   enLines.push('\n' + '━'.repeat(50));
 
