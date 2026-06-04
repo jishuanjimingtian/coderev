@@ -848,6 +848,118 @@ program
     }
   });
 
+// ── Rules Marketplace ─────────────────────────────────────────────
+program
+  .command('rules <action>')
+  .description('Manage rule packs from the coderev marketplace')
+  .option('-q, --query <text>', 'Search query')
+  .option('-n, --name <name>', 'Rule pack name')
+  .option('--version <ver>', 'Version for publish', '1.0.0')
+  .option('--desc <text>', 'Description for publish')
+  .option('--api-url <url>', 'Marketplace API URL')
+  .action(async (action, options) => {
+    try {
+      const { searchRules, installRule, publishRules, listInstalled, uninstallRule, DEFAULT_API_URL } = require('./rules-market');
+      const apiUrl = options.apiUrl || process.env.CODEREV_MARKETPLACE_URL || DEFAULT_API_URL;
+
+      switch (action) {
+        case 'search': {
+          console.log(chalk.blue(`🔍 Searching marketplace for "${options.query || ''}"...`));
+          const results = await searchRules(options.query || '', apiUrl);
+          if (!Array.isArray(results) || results.length === 0) {
+            console.log(chalk.yellow('No rule packs found.'));
+          } else {
+            console.log(chalk.bold(`\nFound ${results.length} rule pack(s):\n`));
+            for (const pack of results) {
+              console.log(chalk.green(`  📦 ${pack.name}`) + chalk.gray(` v${pack.version}`));
+              console.log(`     ${pack.description || '(no description)'}`);
+              console.log(chalk.gray(`     ${pack.rules || 0} rules  •  ${pack.downloads || 0} downloads  •  by ${pack.author || 'unknown'}`));
+              console.log('');
+            }
+            console.log(chalk.blue(`Install: coderev rules install <name>`));
+          }
+          break;
+        }
+
+        case 'install': {
+          const name = options.name || options.query;
+          if (!name) {
+            console.error(chalk.red('✖ Please specify a rule pack name: coderev rules install <name>'));
+            process.exit(1);
+          }
+          console.log(chalk.blue(`📥 Installing "${name}"...`));
+          const result = await installRule(name, apiUrl);
+          console.log(chalk.green(`✔ Installed ${result.name} v${result.version}`));
+          console.log(chalk.gray(`  ${result.added}/${result.total} rules added to .coderevrc.json`));
+          break;
+        }
+
+        case 'publish': {
+          console.log(chalk.blue('📤 Publishing rules to marketplace...'));
+          const result = await publishRules(apiUrl, {
+            name: options.name,
+            version: options.version,
+            description: options.desc,
+          });
+          console.log(chalk.green(`✔ Published "${result.name}" v${options.version} (${result.rules} rules)`));
+          break;
+        }
+
+        case 'list': {
+          const result = listInstalled();
+          if (result.packs.length === 0) {
+            console.log(chalk.yellow(result.message));
+          } else {
+            console.log(chalk.bold(`\n📦 Installed rule packs (${result.packs.length}):\n`));
+            for (const pack of result.packs) {
+              console.log(chalk.green(`  📦 ${pack.name}`) + chalk.gray(` v${pack.version}`));
+              console.log(chalk.gray(`     ${pack.rules} rules  •  installed ${new Date(pack.installedAt).toLocaleDateString()}`));
+            }
+          }
+          break;
+        }
+
+        case 'uninstall': {
+          const name = options.name || options.query;
+          if (!name) {
+            console.error(chalk.red('✖ Please specify a rule pack name: coderev rules uninstall <name>'));
+            process.exit(1);
+          }
+          const result = uninstallRule(name);
+          console.log(chalk.green(`✔ Uninstalled "${result.name}"`));
+          break;
+        }
+
+        case 'info': {
+          const name = options.name || options.query;
+          if (!name) {
+            console.error(chalk.red('✖ Please specify a rule pack name: coderev rules info <name>'));
+            process.exit(1);
+          }
+          const pack = await apiRequest(apiUrl, `/rules/${encodeURIComponent(name)}`);
+          console.log(chalk.bold(`\n📦 ${pack.name}`) + chalk.gray(` v${pack.version}`));
+          console.log(`   ${pack.description || '(no description)'}`);
+          console.log(chalk.gray(`   ${pack.rules?.length || 0} rules  •  by ${pack.author || 'unknown'}`));
+          if (pack.rules && pack.rules.length > 0) {
+            console.log(chalk.bold('\n   Rules:'));
+            for (const r of pack.rules) {
+              const sev = r.severity === 'error' ? chalk.red(r.severity) : r.severity === 'warning' ? chalk.yellow(r.severity) : chalk.gray(r.severity);
+              console.log(`   - ${r.name} [${sev}] ${r.message || ''}`);
+            }
+          }
+          break;
+        }
+
+        default:
+          console.error(chalk.red(`✖ Unknown action "${action}". Use: search | install | publish | list | uninstall | info`));
+          process.exit(1);
+      }
+    } catch (err) {
+      console.error(chalk.red(`✖ ${err.message}`));
+      process.exit(1);
+    }
+  });
+
 program.parse(process.argv);
 
 // ── Helpers ───────────────────────────────────────────────────
