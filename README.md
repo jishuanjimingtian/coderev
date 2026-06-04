@@ -27,9 +27,13 @@
   - [coderev config（配置管理）](#coderev-config配置管理)
   - [coderev init（初始化）](#coderev-init初始化)
   - [coderev serve（GitHub App 自动审查）](#coderev-servegithub-app-自动审查)
+  - [coderev models（模型模板）🆕](#coderev-models模型模板)
+  - [coderev setup（模型配置）🆕](#coderev-setup模型配置)
+  - [coderev rules（规则市场）🆕](#coderev-rules规则市场)
 - [配置详解](#配置详解)
 - [平台集成](#平台集成)
 - [CI/CD 集成](#cicd-集成)
+- [VS Code 扩展 🆕](#vs-code-扩展)
 - [FAQ / 常见问题](#faq--常见问题)
 
 ---
@@ -94,19 +98,25 @@ coderev init
 
 会在当前目录创建 `.coderevrc.json` 配置文件。
 
-### 第 2 步：设置 API Key
+### 第 2 步：设置模型和 API Key
 
-coderev 需要调用 AI API 来审查代码。支持 OpenAI 和 DeepSeek。
+coderev 内置了 11 个热门模型模板，只需选择模板 + 设置 API Key 即可：
 
 ```bash
-# Windows PowerShell
-$env:DEEPSEEK_API_KEY="sk-your-key-here"
+# 查看所有可用模型
+coderev models
 
-# Linux / macOS
-export DEEPSEEK_API_KEY="sk-your-key-here"
+# 选择 DeepSeek（推荐，性价比最高）
+coderev setup --model deepseek
+
+# 设置 API Key
+# Windows PowerShell:
+$env:DEEPSEEK_API_KEY="***"
+# Linux / macOS:
+export DEEPSEEK_API_KEY="***"
 ```
 
-也可以写入配置文件（见下方「配置详解」）。
+支持所有主流 AI 提供商（见 [coderev models](#coderev-models模型模板) 章节）。
 
 ### 第 3 步：运行审查
 
@@ -481,6 +491,125 @@ GITHUB_APP_ID=123456 GITHUB_APP_WEBHOOK_SECRET=mysecret coderev serve
 
 ---
 
+### coderev models（模型模板）🆕 v1.0.24
+
+**作用**：列出所有内置的 AI 模型模板及其配置。只需选择一个模板并设置对应的 API Key 即可使用。
+
+```bash
+coderev models
+```
+
+**内置模板清单**：
+
+| 模板 | 提供商 | 默认模型 | API Key 环境变量 | 说明 |
+|------|--------|---------|-----------------|------|
+| ⭐ `deepseek` | DeepSeek | deepseek-chat | `DEEPSEEK_API_KEY` | 国产高性价比，¥1/百万token |
+| 🧠 `deepseek-r1` | DeepSeek | deepseek-reasoner | `DEEPSEEK_API_KEY` | 推理增强，适合复杂漏洞分析 |
+| `openai` | OpenAI | gpt-4o | `OPENAI_API_KEY` | GPT-4o 多模态旗舰 |
+| 🧠 `openai-o3` | OpenAI | o3-mini | `OPENAI_API_KEY` | 推理型，速度快 |
+| `qwen` | 阿里云 | qwen-plus | `DASHSCOPE_API_KEY` | 中文能力强，¥0.8/百万token |
+| ⭐ `qwen-coder` | 阿里云 | qwen-coder-plus | `DASHSCOPE_API_KEY` | 代码专精，¥2/百万token |
+| `claude` | Anthropic | claude-sonnet-4-20250514 | `ANTHROPIC_API_KEY` | 代码理解深度最强 |
+| `gemini` | Google | gemini-2.5-pro | `GEMINI_API_KEY` | 100万token上下文 |
+| `zhipu` | 智谱 AI | glm-4-plus | `ZHIPU_API_KEY` | 国产强推理 |
+| `moonshot` | 月之暗面 | moonshot-v1-8k | `MOONSHOT_API_KEY` | 长文本处理强 |
+| `codestral` | Mistral | codestral-latest | `MISTRAL_API_KEY` | 专注代码生成与审查 |
+
+> ⭐ = 推荐  |  🧠 = 推理增强型
+
+---
+
+### coderev setup（模型配置）🆕 v1.0.24
+
+**作用**：一键配置 AI 模型，支持主模型、从模型（fallback）、以及不同 Agent 使用不同模型。
+
+```bash
+coderev setup [选项]
+```
+
+**参数**：
+
+| 参数 | 说明 | 示例 |
+|------|------|------|
+| `--model <模板名>` | 设置主模型 | `coderev setup --model deepseek` |
+| `--fallback <模板名>` | 设置备用模型（主模型失败时自动切换） | `coderev setup --model deepseek --fallback qwen` |
+| `--agent-security <模板名>` | 安全 Agent 专用模型 | `coderev setup --agent-security deepseek-r1` |
+| `--agent-bugs <模板名>` | 缺陷检测 Agent 专用模型 | `coderev setup --agent-bugs qwen-coder` |
+| `--agent-quality <模板名>` | 质量检查 Agent 专用模型 | `coderev setup --agent-quality gemini` |
+| （无参数） | 查看当前配置 | `coderev setup` |
+
+**使用示例**：
+
+```bash
+# 最简：选择 DeepSeek
+coderev setup --model deepseek
+
+# 主从模型：DeepSeek 挂了自动切到千问
+coderev setup --model deepseek --fallback qwen
+
+# 不同 Agent 不同模型
+coderev setup --model deepseek --agent-security deepseek-r1 --agent-quality qwen
+
+# 查看当前配置
+coderev setup
+```
+
+**主从模型回退**：主模型调用失败（超时/网络/API 错误）时，自动切到从模型，控制台打印 `↩ Falling back to xxx`。
+
+---
+
+### coderev rules（规则市场）🆕 v1.0.23
+
+**作用**：访问 coderev SaaS 规则市场，搜索、安装、发布团队共享的审查规则包。
+
+```bash
+coderev rules <action> [选项]
+```
+
+**子命令**：
+
+| 动作 | 说明 | 示例 |
+|------|------|------|
+| `search [query]` | 搜索规则市场 | `coderev rules search react` |
+| `install <name>` | 安装规则包 | `coderev rules install react-security` |
+| `publish` | 发布本地规则到市场 | `coderev rules publish --name my-rules` |
+| `list` | 查看已安装的规则包 | `coderev rules list` |
+| `uninstall <name>` | 卸载规则包 | `coderev rules uninstall react-security` |
+| `info <name>` | 查看规则包详情 | `coderev rules info react-security` |
+
+**参数**：
+
+| 参数 | 说明 |
+|------|------|
+| `-q, --query <text>` | 搜索查询 |
+| `-n, --name <name>` | 规则包名称 |
+| `--version <ver>` | 发布版本号（默认 1.0.0） |
+| `--desc <text>` | 发布描述 |
+| `--api-url <url>` | 自定义市场 API 地址 |
+
+**使用示例**：
+
+```bash
+# 搜索规则
+coderev rules search react
+
+# 安装规则包（自动合并到 .coderevrc.json）
+coderev rules install react-security
+
+# 查看已安装
+coderev rules list
+
+# 发布当地规则
+coderev rules publish --name team-js-rules --desc "团队JS规范"
+
+# 卸载
+coderev rules uninstall react-security
+```
+
+安装后规则写入 `.coderevrc.json` 的 `rules.custom` 数组，带 `_source` 标记。
+
+---
+
 ## 配置详解
 
 ### 配置加载顺序
@@ -812,6 +941,55 @@ git diff origin/main...HEAD | coderev review --ci --min-confidence 70
 | 📐 质量检查 | 代码复杂度、DRY、命名规范、异常处理 |
 
 每个 issue 附带**置信度评分 (0-100)**，低于阈值（默认 60）自动过滤。多 Agent 发现的重复问题自动合并去重。
+
+---
+
+有关 GitHub Actions、GitLab CI、Jenkins 的 CI/CD 集成说明及模板，见 [docs/ci-cd.md](docs/ci-cd.md)。
+
+一键生成对应 CI 模板：
+
+```bash
+# GitHub Actions 模板
+coderev init --github-action
+# → 生成 .github/workflows/coderev.yml
+
+# GitLab CI 模板
+coderev init --gitlab-ci
+# → 生成 .gitlab-ci.yml
+```
+
+---
+
+## VS Code 扩展 🆕 v1.0.22
+
+coderev 自带 VS Code 扩展，安装后在编码时实时审查代码。
+
+### 安装
+
+```bash
+# 从本地安装（源码已包含在 vscode/ 目录中）
+cd vscode && npm install && npm run package
+# 在 VS Code 中：Ctrl+Shift+P → Extensions: Install from VSIX...
+# 选择 vscode/coderev-*.vsix
+```
+
+> 暂未上架 VS Code Marketplace，通过本地 VSIX 安装。
+
+### 功能
+
+| 功能 | 说明 |
+|------|------|
+| 工作区审查 | 右键项目目录 → `coderev: Review Workspace` |
+| 单文件审查 | 打开文件 → `Ctrl+Shift+P` → `coderev: Review File` |
+| 自动修复 | 审查发现问题后 → 一键调用 AI 修复 |
+| 保存即审查 | 开启 `coderev.lintOnSave` → 每次保存文件自动审查 |
+| Problems 面板集成 | 问题自动输出到 VS Code Problems 面板，点击跳转 |
+
+### 扩展设置
+
+- `coderev.enabled` — 是否启用自动检查（默认 true）
+- `coderev.lintOnSave` — 保存时审查（默认 false）
+- `coderev.minConfidence` — 最低置信度阈值（默认 60）
 
 ---
 

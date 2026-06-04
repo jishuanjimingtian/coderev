@@ -1,6 +1,42 @@
 # Changelog
 
-## [v1.0.22] — 2026-06-05
+## [v1.0.24] — 2026-06-05
+
+### ✨ 多模型支持 + 热门模板 + 主从回退
+
+- **`src/models.js`**：内置 11 个热门模型模板
+  - DeepSeek V3 / R1、OpenAI GPT-4o / O3、Qwen Plus / Coder、Claude Sonnet 4、Gemini 2.5 Pro、智谱 GLM-4、月之暗面、Codestral
+  - 每个模板预设 provider、baseURL、model、apiKeyEnv、描述
+  - `resolveTemplate()` 支持用户覆盖参数
+- **主从模型回退**：主模型调用失败时自动切到从模型
+  - `coderev setup --model deepseek --fallback qwen`
+  - 回退过程透明，控制台打印日志
+- **不同 Agent 不同模型**：安全/缺陷/质量三个 Agent 可独立配置
+  - `coderev setup --agent-security deepseek-r1 --agent-quality qwen`
+- **`coderev models`**：列出所有模板及其配置和使用方法
+- **`coderev setup`**：一键配置模型，主/从/Agent 级模型选择
+- **`src/models.test.js`**：10 个测试覆盖模板解析、覆盖、验证
+
+### 📝 README 全面更新
+
+- 添加 `coderev models`、`coderev setup`、`coderev rules` 完整使用文档
+- 添加 VS Code 扩展安装和功能说明
+- 快速上手第 2 步改用 `coderev setup --model` 方式
+
+---
+
+## [v1.0.23] — 2026-06-04
+
+### ✨ SaaS 规则市场
+
+- **`src/rules-market.js`**：搜索、安装、发布、管理规则包
+- **`coderev rules`** 子命令：`search` / `install` / `publish` / `list` / `uninstall` / `info`
+- 安装的规则自动合并到 `.coderevrc.json` 的 `rules.custom`，带 `_source` 标记
+- 安装记录保存在 `.coderev-marketplace/installed.json`
+
+---
+
+## [v1.0.22] — 2026-06-04
 
 ### ✨ VS Code 扩展 + GitHub Actions 模板
 
