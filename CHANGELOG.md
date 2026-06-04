@@ -1,5 +1,26 @@
 # Changelog
 
+## [v1.0.22] — 2026-06-05
+
+### ✨ VS Code 扩展 + GitHub Actions 模板
+
+- **VS Code 扩展**（`vscode/`）：
+  - `coderev.review`：审查整个工作区
+  - `coderev.reviewCurrentFile`：审查当前文件
+  - `coderev.fixCurrentFile`：自动修复当前文件
+  - `coderev.stats`：查看审查统计
+  - 保存时自动审查（`coderev.autoReviewOnSave`）
+  - Problems 面板集成（诊断直接显示在编辑器中）
+  - Output Channel 详细报告 + 状态栏按钮
+- **`templates/github-action.yml`**：开箱即用的 GitHub Actions 工作流
+  - 自动在 PR 上发布 sticky comment
+  - 支持 check 模式（commit status + annotations）
+  - 可选 CI 阻塞（CODEREV_BLOCK=true）
+- **`coderev init --github-action`**：一键生成 `.github/workflows/coderev.yml`
+- v0.5.0 VS Code 扩展 ✅ 完成
+
+---
+
 ## [v1.0.21] — 2026-06-04
 
 ### ✨ GitLab CI 原生集成
