@@ -848,6 +848,124 @@ program
     }
   });
 
+// ── Models ────────────────────────────────────────────────────────
+program
+  .command('models')
+  .description('List available AI model templates')
+  .option('--json', 'Output as JSON')
+  .action((options) => {
+    const { listTemplates } = require('./models');
+    const templates = listTemplates();
+
+    if (options.json) {
+      console.log(JSON.stringify(templates, null, 2));
+      return;
+    }
+
+    const tierIcons = { recommended: '⭐', reasoning: '🧠', standard: '  ' };
+    console.log(chalk.bold('\n📋 Available Model Templates\n'));
+    console.log(chalk.gray('  Usage: coderev setup --model <name>        (set primary model)'));
+    console.log(chalk.gray('         coderev setup --model <name> --fallback <name>  (set primary + fallback)'));
+    console.log(chalk.gray('         coderev setup --agent-security <name> --agent-quality <name>'));
+    console.log('');
+
+    for (const t of templates) {
+      const icon = tierIcons[t.tier] || '  ';
+      const providerTag = chalk.gray(`[${t.provider}]`);
+      console.log(`  ${icon} ${chalk.green(t.name)}  ${providerTag}`);
+      console.log(`     ${t.desc}`);
+      console.log(chalk.gray(`     API Key: ${t.apiKeyEnv}`));
+      console.log('');
+    }
+  });
+
+// ── Config ────────────────────────────────────────────────────────
+program
+  .command('setup')
+  .description('Manage coderev model configuration')
+  .option('--model <name>', 'Set primary model template')
+  .option('--fallback <name>', 'Set fallback model template')
+  .option('--agent-security <name>', 'Model for security agent')
+  .option('--agent-bugs <name>', 'Model for bug detection agent')
+  .option('--agent-quality <name>', 'Model for quality agent')
+  .action((options) => {
+    const fs = require('fs');
+    const { resolveTemplate } = require('./models');
+    const configPath = path.join(process.cwd(), '.coderevrc.json');
+
+    let config = {};
+    if (fs.existsSync(configPath)) {
+      config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+    }
+
+    if (!config.ai) config.ai = {};
+
+    // Set primary model
+    if (options.model) {
+      try {
+        const resolved = resolveTemplate(options.model);
+        Object.assign(config.ai, resolved);
+        console.log(chalk.green(`✔ Primary model set to "${options.model}" (${resolved.model})`));
+      } catch (err) {
+        console.error(chalk.red(`✖ ${err.message}`));
+        process.exit(1);
+      }
+    }
+
+    // Set fallback model
+    if (options.fallback) {
+      try {
+        const resolved = resolveTemplate(options.fallback);
+        config.ai.fallback = {
+          enabled: true,
+          provider: resolved.provider,
+          baseURL: resolved.baseURL,
+          model: resolved.model,
+          temperature: resolved.temperature,
+          maxTokens: resolved.maxTokens,
+        };
+        console.log(chalk.green(`✔ Fallback model set to "${options.fallback}" (${resolved.model})`));
+      } catch (err) {
+        console.error(chalk.red(`✖ ${err.message}`));
+        process.exit(1);
+      }
+    }
+
+    // Set per-agent models
+    if (!config.ai.agents) config.ai.agents = {};
+    const agentOpts = [
+      ['security', options.agentSecurity],
+      ['bugs', options.agentBugs],
+      ['quality', options.agentQuality],
+    ];
+    for (const [agent, templateName] of agentOpts) {
+      if (templateName) {
+        try {
+          const resolved = resolveTemplate(templateName);
+          config.ai.agents[agent] = {
+            provider: resolved.provider,
+            baseURL: resolved.baseURL,
+            model: resolved.model,
+            temperature: resolved.temperature,
+          };
+          console.log(chalk.green(`✔ ${agent} agent model set to "${templateName}" (${resolved.model})`));
+        } catch (err) {
+          console.error(chalk.red(`✖ ${err.message}`));
+          process.exit(1);
+        }
+      }
+    }
+
+    fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+    console.log(chalk.blue(`   Config saved to ${configPath}`));
+
+    if (!options.model && !options.fallback && !options.agentSecurity && !options.agentBugs && !options.agentQuality) {
+      // No options: show current config
+      console.log(chalk.bold('\n📋 Current coderev config:\n'));
+      console.log(JSON.stringify(config, null, 2));
+    }
+  });
+
 // ── Rules Marketplace ─────────────────────────────────────────────
 program
   .command('rules <action>')

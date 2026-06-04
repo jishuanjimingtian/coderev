@@ -186,7 +186,8 @@ async function runParallelAgents(apiKey, config, prompts) {
 
   const tasks = prompts.map(async (p) => {
     try {
-      const text = await callAI(apiKey, p.messages, config);
+      // Pass agent name so callAI can select per-agent model config
+      const text = await callAI(apiKey, p.messages, config, p.role.name);
       const parsed = parseReviewResponse(text);
       return { name: p.role.name, success: true, ...parsed };
     } catch (err) {
@@ -440,32 +441,84 @@ Important:
 }
 
 /**
- * Call the AI provider.
+ * Call the AI provider with support for:
+ * - Per-agent model selection (ai.agents[agentType])
+ * - Primary/fallback model switching (ai.fallback)
+ *
+ * @param {string} apiKey - API key
+ * @param {Array} messages - Chat messages
+ * @param {object} config - Full config object
+ * @param {string} [agentType] - Agent type for per-agent model selection ('security'|'bugs'|'quality')
+ * @returns {Promise<string>} AI response text
  */
-async function callAI(apiKey, messages, config) {
+async function callAI(apiKey, messages, config, agentType) {
   const aiConfig = config.ai || {};
-  const provider = aiConfig.provider || 'openai';
 
-  const OpenAI = require('openai');
-
-  // Determine base URL from provider or config
-  let baseURL = aiConfig.baseURL;
-  if (!baseURL) {
-    if (provider === 'deepseek') baseURL = 'https://api.deepseek.com';
-    // openai and all others default to undefined (official endpoint)
+  // Resolve model config for this agent
+  let modelConfig = { ...aiConfig };
+  if (agentType && aiConfig.agents && aiConfig.agents[agentType]) {
+    const agentCfg = aiConfig.agents[agentType];
+    modelConfig = { ...aiConfig, ...agentCfg };
   }
 
-  const defaultModels = {
-    openai: 'gpt-4o',
-    deepseek: 'deepseek-chat',
-  };
+  const provider = modelConfig.provider || 'openai';
 
+  // Determine base URL
+  let baseURL = modelConfig.baseURL;
+  if (!baseURL) {
+    if (provider === 'deepseek') baseURL = 'https://api.deepseek.com';
+  }
+
+  const defaultModels = { openai: 'gpt-4o', deepseek: 'deepseek-chat' };
+  const model = modelConfig.model || defaultModels[provider] || provider;
+
+  // Try primary model first
+  try {
+    return await _doCallAI(apiKey, messages, {
+      model,
+      baseURL,
+      temperature: modelConfig.temperature ?? 0.3,
+      maxTokens: modelConfig.maxTokens || 4096,
+    });
+  } catch (err) {
+    const fallback = aiConfig.fallback;
+    const fallbackEnabled = fallback && fallback.enabled !== false;
+
+    if (!fallbackEnabled || !fallback.model) {
+      throw err;
+    }
+
+    // Log fallback attempt (visible in --debug mode)
+    const chalk = require('chalk');
+    console.error(chalk.yellow(`⚠️  Primary model failed: ${err.message}`));
+    console.error(chalk.blue(`↩  Falling back to ${fallback.model}...`));
+
+    const fbProvider = fallback.provider || provider;
+    let fbBaseURL = fallback.baseURL;
+    if (!fbBaseURL) {
+      if (fbProvider === 'deepseek') fbBaseURL = 'https://api.deepseek.com';
+    }
+
+    return await _doCallAI(apiKey, messages, {
+      model: fallback.model,
+      baseURL: fbBaseURL,
+      temperature: fallback.temperature ?? 0.3,
+      maxTokens: fallback.maxTokens || 4096,
+    });
+  }
+}
+
+/**
+ * Internal: make a single AI call.
+ */
+async function _doCallAI(apiKey, messages, { model, baseURL, temperature, maxTokens }) {
+  const OpenAI = require('openai');
   const client = new OpenAI({ apiKey, baseURL: baseURL || undefined });
 
   const response = await client.chat.completions.create({
-    model: aiConfig.model || defaultModels[provider] || provider,
-    temperature: aiConfig.temperature ?? 0.3,
-    max_tokens: aiConfig.maxTokens || 4096,
+    model,
+    temperature,
+    max_tokens: maxTokens,
     messages,
   });
 
