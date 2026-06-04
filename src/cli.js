@@ -639,7 +639,8 @@ fi
 program
   .command('init')
   .description('Create a default coderev config file')
-  .action(() => {
+  .option('--gitlab-ci', 'Generate a .gitlab-ci.yml template for GitLab CI/CD review')
+  .action((options) => {
     const fs = require('fs');
     const path = require('path');
     const defaultConfig = {
@@ -707,6 +708,63 @@ build/
 `;
       fs.writeFileSync(hintPath, hintContent);
       console.log(chalk.green(`✔ Default .coderevhint created at ${hintPath}`));
+    }
+
+    // --gitlab-ci: generate GitLab CI template
+    if (options.gitlabCi) {
+      const ciPath = path.join(process.cwd(), '.gitlab-ci.yml');
+      if (fs.existsSync(ciPath)) {
+        console.log(chalk.yellow(`⚠ .gitlab-ci.yml already exists. Skipping.`));
+      } else {
+        const templatePath = path.join(__dirname, '..', 'templates', '.gitlab-ci.yml');
+        if (fs.existsSync(templatePath)) {
+          fs.copyFileSync(templatePath, ciPath);
+          console.log(chalk.green(`✔ GitLab CI template created at ${ciPath}`));
+        } else {
+          // Fallback: inline the template content
+          const ciContent = `# coderev — Multi-Agent AI Code Review for GitLab CI
+# Quick start:
+#   1. Set CI variable DEEPSEEK_API_KEY in GitLab → Settings → CI/CD → Variables
+#   2. (Optional) Set GITLAB_TOKEN for auto-posting MR comments
+
+stages:
+  - review
+
+coderev-review:
+  stage: review
+  image: node:20-alpine
+  needs: []
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      when: never
+  before_script:
+    - npm install -g coderev-cli
+    - command -v git >/dev/null 2>&1 || apk add --no-cache git
+  script:
+    - |
+      if [ -n "$CI_MERGE_REQUEST_DIFF_BASE_SHA" ]; then
+        git diff $CI_MERGE_REQUEST_DIFF_BASE_SHA...$CI_COMMIT_SHA > /tmp/coderev-mr.diff
+      else
+        git diff HEAD~1 > /tmp/coderev-mr.diff
+      fi
+    - cat /tmp/coderev-mr.diff | coderev review --output markdown --ci --min-confidence 60 > /tmp/coderev-output.md
+    - cat /tmp/coderev-output.md
+  artifacts:
+    when: always
+    paths:
+      - /tmp/coderev-output.md
+    expire_in: 7 days
+`;
+          fs.writeFileSync(ciPath, ciContent);
+          console.log(chalk.green(`✔ GitLab CI template created at ${ciPath}`));
+        }
+      }
+      console.log(chalk.blue('  Next steps:'));
+      console.log(chalk.blue('  1. Go to GitLab → Settings → CI/CD → Variables'));
+      console.log(chalk.blue('  2. Add variable DEEPSEEK_API_KEY with your API key'));
+      console.log(chalk.blue('  3. (Optional) Add GITLAB_TOKEN with api scope for MR comments'));
+      console.log(chalk.blue('  4. Push to GitLab — coderev runs on every MR!'));
     }
   });
 

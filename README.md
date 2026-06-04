@@ -736,6 +736,37 @@ coderev review --pr 42 --inline
 - 执行内容：对比 PR 的 diff → coderev 审查 → 结果回贴到 PR 评论
 - 效果：每个 PR 自动获得一份 AI 审查报告
 
+或使用 GitHub Actions Marketplace 中的 Action：
+
+```yaml
+steps:
+  - uses: jishuanjimingtian/coderev@v1
+    with:
+      github-token: ${{ secrets.GITHUB_TOKEN }}
+      api-key: ${{ secrets.DEEPSEEK_API_KEY }}
+```
+
+### GitLab CI
+
+使用 `coderev init --gitlab-ci` 一键生成配置，或直接将 `templates/.gitlab-ci.yml` 复制到项目根目录。
+
+**变量配置**（GitLab → Settings → CI/CD → Variables）：
+
+| 变量 | 必填 | 说明 |
+|------|------|------|
+| `DEEPSEEK_API_KEY` | ✅ | AI 提供商的 API Key |
+| `GITLAB_TOKEN` | 可选 | GitLab PAT（api scope），用于自动发布 MR 评论 |
+| `CODEREV_CONFIDENCE` | 可选 | 置信度阈值，默认 60 |
+| `CODEREV_MODE` | 可选 | 审查模式：full / security / bugs / quality |
+| `CODEREV_BLAME` | 可选 | 启用 git blame：true / false |
+| `CODEREV_BLOCK` | 可选 | 发现问题时阻塞 MR：true / false |
+
+**工作流过程**：
+1. MR 创建/更新时自动触发
+2. 生成 MR diff → coderev 3 Agent 并行审查
+3. 审查结果作为 MR 评论自动发布（需 GITLAB_TOKEN）
+4. 如开启 `CODEREV_BLOCK`，发现问题时 pipeline 失败
+
 ### 自定义 CI 集成
 
 在任意 CI 管道中：

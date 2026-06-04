@@ -48,7 +48,7 @@
 - [ ] SaaS 版：云端规则仓库
 - [ ] 团队协作：共享规则、审查历史
 - [ ] VS Code 扩展
-- [ ] GitLab CI 原生集成
+- [x] GitLab CI 原生集成（`.gitlab-ci.yml` 模板 + `coderev init --gitlab-ci`）
 
 ## 💎 远期
 - [ ] 多语言 AST 级别分析

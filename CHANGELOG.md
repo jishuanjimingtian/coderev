@@ -1,5 +1,20 @@
 # Changelog
 
+## [v1.0.21] — 2026-06-04
+
+### ✨ GitLab CI 原生集成
+
+- **`.gitlab-ci.yml` 模板**：开箱即用的 GitLab CI 配置
+  - 自动检测 MR diff，运行 3 Agent 并行审查
+  - 支持自动发布 MR 评论（需设置 GITLAB_TOKEN）
+  - 支持 CI 阻塞模式（CODEREV_BLOCK=true，发现问题时 fail pipeline）
+  - 可配 provider / model / confidence / blame / mode
+  - 产物保留 7 天（artifacts）
+- **`coderev init --gitlab-ci`**：一键生成 `.gitlab-ci.yml` 到项目根目录
+- 与 GitHub Actions（action.yml）互补，形成完整 CI/CD 集成版图
+
+---
+
 ## [v1.0.17] — 2026-06-03
 
 ### ✨ 新功能（v0.4.0 体验提升完成）

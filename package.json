@@ -35,6 +35,7 @@
   },
   "files": [
     "src/",
+    "templates/",
     "README.md",
     ".env.example"
   ],

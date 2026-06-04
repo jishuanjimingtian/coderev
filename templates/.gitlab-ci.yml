@@ -1,0 +1,134 @@
+# =============================================================================
+# coderev — Multi-Agent AI Code Review for GitLab CI
+# =============================================================================
+#
+# This template runs coderev on every merge request, using 3 parallel AI agents
+# (Security / Bug / Quality) with confidence scoring.
+#
+# QUICK START:
+#   1. Copy this file to your repo as .gitlab-ci.yml
+#   2. Set CI variable DEEPSEEK_API_KEY in GitLab → Settings → CI/CD → Variables
+#   3. (Optional) Set GITLAB_TOKEN for private repos or to post review comments
+#
+# VARIABLES (set in GitLab CI/CD Settings):
+#   DEEPSEEK_API_KEY  (required)  AI provider API key
+#   GITLAB_TOKEN       (optional) GitLab PAT for posting MR comments (api scope)
+#   CODEREV_PROVIDER   (optional) AI provider: deepseek | openai (default: deepseek)
+#   CODEREV_MODEL      (optional) Model name (default: deepseek-chat)
+#   CODEREV_CONFIDENCE (optional) Min confidence 0-100 (default: 60)
+#   CODEREV_MODE       (optional) Review mode: full | security | bugs | quality
+#   CODEREV_BLAME      (optional) Enable git blame: "true" | "false" (default: false)
+#   CODEREV_BLOCK      (optional) Block MR on issues: "true" | "false" (default: false)
+# =============================================================================
+
+stages:
+  - review
+
+coderev-review:
+  stage: review
+  image: node:20-alpine
+  needs: []
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      when: never
+  before_script:
+    # Install coderev and dependencies
+    - npm install -g coderev-cli
+    # Ensure git is configured for diff generation
+    - command -v git >/dev/null 2>&1 || apk add --no-cache git
+  script:
+    # ── Generate MR diff ──
+    - |
+      echo "📋 Generating diff for merge request..."
+      if [ -n "$CI_MERGE_REQUEST_DIFF_BASE_SHA" ]; then
+        git diff $CI_MERGE_REQUEST_DIFF_BASE_SHA...$CI_COMMIT_SHA > /tmp/coderev-mr.diff
+      elif [ -n "$CI_MERGE_REQUEST_TARGET_BRANCH_SHA" ]; then
+        git diff $CI_MERGE_REQUEST_TARGET_BRANCH_SHA...$CI_COMMIT_SHA > /tmp/coderev-mr.diff
+      else
+        echo "⚠️  Could not determine MR base. Reviewing working tree..."
+        git diff HEAD~1 > /tmp/coderev-mr.diff
+      fi
+      echo "Debug: Diff saved ($(wc -c < /tmp/coderev-mr.diff) bytes)"
+
+    # ── Build CLI args ──
+    - |
+      CODEREV_ARGS=""
+
+      # Output format
+      CODEREV_ARGS="$CODEREV_ARGS --output markdown"
+
+      # Provider
+      PROVIDER="${CODEREV_PROVIDER:-deepseek}"
+
+      # Mode filter
+      case "${CODEREV_MODE:-full}" in
+        security) CODEREV_ARGS="$CODEREV_ARGS --audit" ;;
+        bugs)     CODEREV_ARGS="$CODEREV_ARGS --agents bugs" ;;
+        quality)  CODEREV_ARGS="$CODEREV_ARGS --agents quality" ;;
+      esac
+
+      # Confidence threshold
+      CONFIDENCE="${CODEREV_CONFIDENCE:-60}"
+      CODEREV_ARGS="$CODEREV_ARGS --min-confidence $CONFIDENCE"
+
+      # Git blame
+      if [ "${CODEREV_BLAME:-false}" = "true" ]; then
+        CODEREV_ARGS="$CODEREV_ARGS --blame"
+      fi
+
+      # CI mode (block MR on issues)
+      if [ "${CODEREV_BLOCK:-false}" = "true" ]; then
+        CODEREV_ARGS="$CODEREV_ARGS --ci"
+      fi
+
+    # ── Run coderev ──
+    - |
+      echo "🔍 Running coderev multi-agent review..."
+      export DEEPSEEK_API_KEY="${DEEPSEEK_API_KEY}"
+      export OPENAI_API_KEY="${OPENAI_API_KEY:-$DEEPSEEK_API_KEY}"
+      cat /tmp/coderev-mr.diff | coderev review $CODEREV_ARGS > /tmp/coderev-output.md 2>/tmp/coderev-stderr.txt
+      REVIEW_EXIT_CODE=$?
+      echo "Debug: review exit code = $REVIEW_EXIT_CODE"
+
+    # ── Post review as MR comment (if GITLAB_TOKEN is set) ──
+    - |
+      if [ -n "$GITLAB_TOKEN" ] && [ -n "$CI_MERGE_REQUEST_IID" ]; then
+        echo "💬 Posting review comment to MR !$CI_MERGE_REQUEST_IID ..."
+
+        # Read and escape the review output for JSON
+        REVIEW_BODY=$(cat /tmp/coderev-output.md | python3 -c "import sys,json; print(json.dumps(sys.stdin.read()))" 2>/dev/null || \
+                      node -e "const fs=require('fs');console.log(JSON.stringify(fs.readFileSync('/tmp/coderev-output.md','utf8')))")
+
+        # Post via GitLab API
+        curl -s -X POST \
+          "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/merge_requests/${CI_MERGE_REQUEST_IID}/notes" \
+          --header "PRIVATE-TOKEN: ${GITLAB_TOKEN}" \
+          --header "Content-Type: application/json" \
+          --data "{\"body\": $REVIEW_BODY}" \
+          > /tmp/coderev-post-response.json 2>/tmp/coderev-curl-stderr.txt
+
+        if [ $? -eq 0 ]; then
+          echo "✅ Review comment posted to MR !$CI_MERGE_REQUEST_IID"
+        else
+          echo "⚠️  Failed to post comment (check GITLAB_TOKEN scope: api)"
+        fi
+      else
+        echo "ℹ️  GITLAB_TOKEN not set — skipping MR comment. Review output:"
+        cat /tmp/coderev-output.md
+      fi
+
+    # ── Exit with review status (CI mode) ──
+    - |
+      if [ "${CODEREV_BLOCK:-false}" = "true" ] && [ $REVIEW_EXIT_CODE -ne 0 ]; then
+        echo "🚫 Issues found! Blocking MR. Fix issues or lower CODEREV_CONFIDENCE."
+        exit 1
+      fi
+      echo "✅ coderev review complete."
+
+  artifacts:
+    when: always
+    paths:
+      - /tmp/coderev-output.md
+      - /tmp/coderev-stderr.txt
+    expire_in: 7 days
