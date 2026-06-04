@@ -1,0 +1,118 @@
+{
+  "name": "coderev",
+  "displayName": "coderev — AI Code Review",
+  "description": "Multi-agent AI code review inside VS Code. Security, Bug, Quality agents review your code in parallel with confidence scoring.",
+  "version": "1.0.0",
+  "publisher": "coderev",
+  "icon": "icon.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jishuanjimingtian/coderev"
+  },
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": [
+    "Linters",
+    "Other"
+  ],
+  "keywords": [
+    "code-review",
+    "ai",
+    "security",
+    "bug-detection",
+    "quality"
+  ],
+  "activationEvents": [
+    "onCommand:coderev.review",
+    "onCommand:coderev.reviewCurrentFile",
+    "onCommand:coderev.fixCurrentFile",
+    "onCommand:coderev.stats",
+    "onCommand:coderev.configure"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "coderev.review",
+        "title": "coderev: Review Workspace (full diff)"
+      },
+      {
+        "command": "coderev.reviewCurrentFile",
+        "title": "coderev: Review Current File"
+      },
+      {
+        "command": "coderev.fixCurrentFile",
+        "title": "coderev: Auto-fix Current File"
+      },
+      {
+        "command": "coderev.stats",
+        "title": "coderev: Show Review Stats"
+      },
+      {
+        "command": "coderev.configure",
+        "title": "coderev: Configure Settings"
+      }
+    ],
+    "configuration": {
+      "title": "coderev",
+      "properties": {
+        "coderev.provider": {
+          "type": "string",
+          "default": "deepseek",
+          "enum": ["deepseek", "openai", "openai-compatible"],
+          "description": "AI provider for code review"
+        },
+        "coderev.model": {
+          "type": "string",
+          "default": "deepseek-chat",
+          "description": "Model name for code review"
+        },
+        "coderev.minConfidence": {
+          "type": "number",
+          "default": 60,
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Minimum confidence threshold for issues (0-100)"
+        },
+        "coderev.apiKey": {
+          "type": "string",
+          "default": "",
+          "description": "API key for AI provider (falls back to DEEPSEEK_API_KEY env var)"
+        },
+        "coderev.baseUrl": {
+          "type": "string",
+          "default": "",
+          "description": "Base URL for OpenAI-compatible providers"
+        },
+        "coderev.enableProblemsPanel": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show review issues in the Problems panel"
+        },
+        "coderev.autoReviewOnSave": {
+          "type": "boolean",
+          "default": false,
+          "description": "Automatically review a file when it is saved"
+        },
+        "coderev.reviewOnSave": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "Automatically review current file on save (use `#coderev.reviewOnSave#` when depending on other extensions)"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "package": "npx @vscode/vsce package",
+    "publish": "npx @vscode/vsce publish"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.80.0",
+    "typescript": "^5.3.0"
+  }
+}

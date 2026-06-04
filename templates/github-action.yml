@@ -1,0 +1,143 @@
+# coderev — Multi-Agent AI Code Review for GitHub Actions
+# Quick start:
+#   1. Copy this file to .github/workflows/coderev.yml
+#      Or run: npx coderev-cli init --github-action
+#   2. Set Secrets: DEEPSEEK_API_KEY in Settings → Secrets and variables → Actions
+#   3. (Optional) Set GITHUB_TOKEN is auto-provided, no setup needed
+#
+# Usage:
+#   - Review on every PR: default trigger
+#   - Block merging on issues: enable CODEREV_BLOCK or comment with coderev status
+#
+# Variables (set in workflow or as env):
+#   CODEREV_PROVIDER     AI provider (default: deepseek)
+#   CODEREV_MODEL        Model name (default: deepseek-chat)
+#   CODEREV_CONFIDENCE   Minimum confidence 0-100 (default: 60)
+#   CODEREV_BLOCK        Block PR on issues (default: false)
+#   CODEREV_BLAME        Enable git blame context (default: false)
+#   CODEREV_MODE         Review mode: comment | check (default: comment)
+
+name: coderev AI Code Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Git ref to review (branch/commit)'
+        required: false
+
+permissions:
+  contents: read
+  pull-requests: write
+  checks: write
+
+jobs:
+  coderev:
+    name: AI Code Review
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install coderev
+        run: npm install -g coderev-cli
+
+      - name: Generate diff
+        id: diff
+        run: |
+          if [ -n "${{ github.event.pull_request.base.sha }}" ]; then
+            git diff ${{ github.event.pull_request.base.sha }}...${{ github.event.pull_request.head.sha }} > /tmp/coderev-pr.diff
+          else
+            git diff HEAD~1 > /tmp/coderev-pr.diff
+          fi
+          echo "Diff size: $(wc -c < /tmp/coderev-pr.diff) bytes"
+
+      - name: Run coderev review
+        id: review
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          CODEREV_PROVIDER: ${{ env.CODEREV_PROVIDER || 'deepseek' }}
+          CODEREV_MODEL: ${{ env.CODEREV_MODEL || 'deepseek-chat' }}
+        run: |
+          BLAME_FLAG=""
+          if [ "${{ env.CODEREV_BLAME || 'false' }}" = "true" ]; then
+            BLAME_FLAG="--blame"
+          fi
+
+          cat /tmp/coderev-pr.diff | coderev review \
+            --output markdown \
+            --ci $BLAME_FLAG \
+            --min-confidence ${{ env.CODEREV_CONFIDENCE || '60' }} \
+            > /tmp/coderev-report.md 2>/tmp/coderev-stderr.log
+
+          echo "Exit code: $?"
+
+      - name: Post review as PR comment
+        if: github.event_name == 'pull_request' && env.CODEREV_MODE != 'check'
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: coderev-review
+          path: /tmp/coderev-report.md
+
+      - name: Post review as GitHub Check
+        if: env.CODEREV_MODE == 'check'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const report = fs.readFileSync('/tmp/coderev-report.md', 'utf8');
+
+            // Parse score from report
+            const scoreMatch = report.match(/\*\*Score:\*\*\s*(\d+)\/100/);
+            const score = scoreMatch ? parseInt(scoreMatch[1]) : 0;
+            const conclusion = score >= 80 ? 'success' : score >= 50 ? 'neutral' : 'failure';
+
+            // Count issues
+            const issueMatches = report.match(/\*\*ERROR\*\*/g);
+            const warnMatches = report.match(/\*\*WARNING\*\*/g);
+
+            await github.rest.checks.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              name: 'coderev AI Review',
+              head_sha: context.payload.pull_request?.head?.sha || context.sha,
+              status: 'completed',
+              conclusion: conclusion,
+              output: {
+                title: `Code Review: ${score}/100`,
+                summary: report.substring(0, 65535),
+                annotations: []
+              }
+            });
+
+      - name: Block on issues (optional)
+        if: env.CODEREV_BLOCK == 'true'
+        run: |
+          SCORE=$(grep -oP '\*\*Score:\*\*\s*\K\d+' /tmp/coderev-report.md || echo 0)
+          if [ "$SCORE" -lt 60 ]; then
+            echo "⛔ Score $SCORE/100 below threshold (60). Blocking PR."
+            cat /tmp/coderev-report.md
+            exit 1
+          fi
+          echo "✅ Score $SCORE/100 — passed."
+
+      - name: Upload review artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coderev-report
+          path: |
+            /tmp/coderev-report.md
+            /tmp/coderev-stderr.log
+          retention-days: 7

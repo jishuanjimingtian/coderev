@@ -640,6 +640,7 @@ program
   .command('init')
   .description('Create a default coderev config file')
   .option('--gitlab-ci', 'Generate a .gitlab-ci.yml template for GitLab CI/CD review')
+  .option('--github-action', 'Generate a GitHub Actions workflow for PR review')
   .action((options) => {
     const fs = require('fs');
     const path = require('path');
@@ -765,6 +766,64 @@ coderev-review:
       console.log(chalk.blue('  2. Add variable DEEPSEEK_API_KEY with your API key'));
       console.log(chalk.blue('  3. (Optional) Add GITLAB_TOKEN with api scope for MR comments'));
       console.log(chalk.blue('  4. Push to GitLab — coderev runs on every MR!'));
+    }
+
+    // --github-action: generate GitHub Actions workflow
+    if (options.githubAction) {
+      const gaDir = path.join(process.cwd(), '.github', 'workflows');
+      const gaPath = path.join(gaDir, 'coderev.yml');
+      if (fs.existsSync(gaPath)) {
+        console.log(chalk.yellow(`⚠ ${gaPath} already exists. Skipping.`));
+      } else {
+        const templatePath = path.join(__dirname, '..', 'templates', 'github-action.yml');
+        if (fs.existsSync(templatePath)) {
+          fs.mkdirSync(gaDir, { recursive: true });
+          fs.copyFileSync(templatePath, gaPath);
+          console.log(chalk.green(`✔ GitHub Actions workflow created at ${gaPath}`));
+        } else {
+          // Fallback: write minimal workflow
+          const gaContent = `name: coderev AI Code Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  coderev:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install -g coderev-cli
+      - run: |
+          git diff \${{ github.event.pull_request.base.sha }}...\${{ github.event.pull_request.head.sha }} > /tmp/coderev-pr.diff
+      - env:
+          DEEPSEEK_API_KEY: \${{ secrets.DEEPSEEK_API_KEY }}
+        run: |
+          cat /tmp/coderev-pr.diff | coderev review --output markdown --ci --min-confidence 60 > /tmp/coderev-report.md
+      - uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: coderev-review
+          path: /tmp/coderev-report.md
+`;
+          fs.mkdirSync(gaDir, { recursive: true });
+          fs.writeFileSync(gaPath, gaContent);
+          console.log(chalk.green(`✔ GitHub Actions workflow created at ${gaPath}`));
+        }
+      }
+      console.log(chalk.blue('  Next steps:'));
+      console.log(chalk.blue('  1. Go to GitHub → Settings → Secrets and variables → Actions'));
+      console.log(chalk.blue('  2. Add secret DEEPSEEK_API_KEY with your API key'));
+      console.log(chalk.blue('  3. Push to GitHub — coderev reviews every PR!'));
     }
   });
 
