@@ -29,5 +29,5 @@
 - [x] 开源社区贡献指南 (CONTRIBUTING.md)
 - [ ] SaaS 版：云端规则仓库
 - [ ] 团队协作：共享规则、审查历史
-- [ ] VS Code 扩展
+- [x] VS Code 扩展
 - [x] GitLab CI 原生集成（`.gitlab-ci.yml` 模板 + `coderev init --gitlab-ci`）
