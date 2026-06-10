@@ -4,7 +4,7 @@
   "description": "Multi-agent AI code review for git -- parallel agents with confidence scoring",
   "main": "src/index.js",
   "bin": {
-    "coderev": "src/cli.js"
+    "coderev": "src/bin.js"
   },
   "scripts": {
     "start": "node src/cli.js",
