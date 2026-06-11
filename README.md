@@ -30,6 +30,7 @@
   - [coderev models（模型模板）🆕](#coderev-models模型模板)
   - [coderev setup（模型配置）🆕](#coderev-setup模型配置)
   - [coderev rules（规则市场）🆕](#coderev-rules规则市场)
+  - [coderev doctor（环境诊断）🆕](#coderev-doctor环境诊断)
 - [配置详解](#配置详解)
 - [平台集成](#平台集成)
 - [CI/CD 集成](#cicd-集成)
@@ -607,6 +608,68 @@ coderev rules uninstall react-security
 ```
 
 安装后规则写入 `.coderevrc.json` 的 `rules.custom` 数组，带 `_source` 标记。
+
+---
+
+### coderev doctor（环境诊断）🆕 v1.0.26
+
+**作用**：一键诊断 coderev 的运行环境，快速定位配置问题。
+
+```bash
+coderev doctor
+```
+
+**检查项目**：
+
+| 检查项 | 说明 |
+|--------|------|
+| Node.js Version | 检查 Node.js 版本是否 >= 18 |
+| Git | 检查 git 是否安装及当前目录是否为 git 仓库 |
+| Config File | 检查配置文件是否存在且格式有效 |
+| API Key | 检查 API Key 是否已配置（环境变量或配置文件） |
+| AI Provider Connectivity | 检查 AI 服务商网络连通性及 API 可用性 |
+
+**参数**：
+
+| 参数 | 说明 | 示例 |
+|------|------|------|
+| `-c, --config <path>` | 指定配置文件路径 | `coderev doctor --config ./my-config.json` |
+| `--json` | 以 JSON 格式输出 | `coderev doctor --json` |
+
+**输出示例**：
+
+```
+🩺  coderev Doctor — Environment Diagnostic
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ✔ Node.js Version
+    v24.13.0 (>= 18 required)
+
+  ✔ Git
+    git version 2.45.0 — inside a git repository
+
+  ✔ Config File
+    Valid: /path/to/.coderevrc.json
+
+  ✔ API Key
+    Found from env $DEEPSEEK_API_KEY: sk-xxxx...xxxx
+
+  ✔ AI Provider Connectivity
+    Connected to deepseek (https://api.deepseek.com) — API accessible
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  5 passed
+
+  ✔ All checks passed! Your environment is ready for coderev. 🚀
+```
+
+**适用场景**：
+- 首次安装后验证环境是否就绪
+- 遇到 `API key not found` 等错误时快速定位
+- 切换 AI 服务商后检查连通性
+- CI 环境中验证配置是否完整
+
+`doctor` 命令返回非零退出码当有检查项失败（`✖`），适合在 CI 脚本中使用。
 
 ---
 

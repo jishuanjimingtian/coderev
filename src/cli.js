@@ -1078,6 +1078,33 @@ program
     }
   });
 
+// ── Doctor (Environment Diagnostic) ─────────────────────────────
+program
+  .command('doctor')
+  .description('Run environment diagnostic to troubleshoot common issues')
+  .option('-c, --config <path>', 'Path to config file')
+  .option('--json', 'Output as JSON')
+  .action(async (options) => {
+    try {
+      const { runDoctor, formatDoctorReport } = require('./doctor');
+      console.error(chalk.blue('↻ Running environment diagnostic...\n'));
+      const { checks, allPassed } = await runDoctor({ config: options.config });
+
+      if (options.json) {
+        console.log(JSON.stringify({ allPassed, checks }, null, 2));
+      } else {
+        console.log(formatDoctorReport(checks));
+      }
+
+      if (!allPassed) {
+        process.exitCode = 1;
+      }
+    } catch (err) {
+      console.error(chalk.red(`✖ ${err.message}`));
+      process.exit(1);
+    }
+  });
+
 program.parse(process.argv);
 
 // ── Helpers ───────────────────────────────────────────────────
