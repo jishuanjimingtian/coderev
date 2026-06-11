@@ -1,0 +1,274 @@
+<!doctype html>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>coderev - AI Code Review Tool</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #f8fafc;
+    --fg: #172033;
+    --muted: #5b6475;
+    --line: #64748b;
+    --neutral: #e2e8f0;
+    --input: #bfdbfe;
+    --process: #c7d2fe;
+    --storage: #99f6e4;
+    --external: #fde68a;
+    --risk: #fecaca;
+    --green: #bbf7d0;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f172a;
+      --fg: #e5e7eb;
+      --muted: #a3adbd;
+      --line: #94a3b8;
+      --neutral: #334155;
+      --input: #1d4ed8;
+      --process: #4338ca;
+      --storage: #0f766e;
+      --external: #92400e;
+      --risk: #991b1b;
+      --green: #166534;
+    }
+  }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font: 14px/1.5 ui-sans-serif, system-ui, -apple-system, sans-serif;
+  }
+  main {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 20px;
+  }
+  svg { width: 100%; height: auto; display: block; }
+  .edge { stroke: var(--line); stroke-width: 1.5; fill: none; }
+  .neutral { fill: var(--neutral); }
+  .input { fill: var(--input); }
+  .process { fill: var(--process); }
+  .storage { fill: var(--storage); }
+  .external { fill: var(--external); }
+  .risk { fill: var(--risk); }
+  .green { fill: var(--green); }
+  .dd { stroke: var(--line); stroke-width: 1; }
+</style>
+<main>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 1650" font-family="ui-sans-serif,system-ui,sans-serif">
+
+  <!-- BG -->
+  <rect width="960" height="1650" fill="var(--bg)" />
+
+  <!-- ===== TITLE ===== -->
+  <text x="480" y="50" text-anchor="middle" font-size="28" font-weight="700" fill="var(--fg)">🦞 coderev — AI 代码审查</text>
+  <text x="480" y="78" text-anchor="middle" font-size="15" fill="var(--muted)">多智能体并行审查 · Security / Bug / Quality 三维度 · npm: coderev-cli</text>
+
+  <!-- ===== SECTION 1: 如何工作 ===== -->
+  <rect x="20" y="100" width="920" height="340" rx="8" class="dd neutral" fill="none" />
+  <text x="480" y="125" text-anchor="middle" font-size="18" font-weight="700" fill="var(--fg)">🔍 如何工作：3 Agent 并行审查</text>
+
+  <!-- Diff input -->
+  <rect x="60" y="148" width="140" height="60" rx="10" class="dd neutral" />
+  <text x="130" y="183" text-anchor="middle" font-size="15" fill="var(--fg)" font-weight="600">📦 代码 Diff</text>
+
+  <!-- Arrow to Agents -->
+  <line x1="200" y1="178" x2="270" y2="178" class="edge" marker-end="url(#arrow)" />
+
+  <!-- Parallel agents -->
+  <rect x="275" y="138" width="180" height="80" rx="10" class="dd" fill="#fee2e2" stroke="var(--line)" stroke-width="1.5" />
+  <text x="365" y="162" text-anchor="middle" font-size="14" fill="#991b1b" font-weight="700">🔒 安全审计 Agent</text>
+  <text x="365" y="182" text-anchor="middle" font-size="11" fill="var(--muted)">SQL 注入 · XSS · OWASP TOP10</text>
+  <text x="365" y="198" text-anchor="middle" font-size="11" fill="var(--muted)">硬编码密钥 · 认证缺陷</text>
+
+  <rect x="275" y="238" width="180" height="80" rx="10" class="dd" fill="#fef3c7" stroke="var(--line)" stroke-width="1.5" />
+  <text x="365" y="262" text-anchor="middle" font-size="14" fill="#92400e" font-weight="700">🐛 缺陷检测 Agent</text>
+  <text x="365" y="282" text-anchor="middle" font-size="11" fill="var(--muted)">空指针 · 竞态条件 · 逻辑错误</text>
+  <text x="365" y="298" text-anchor="middle" font-size="11" fill="var(--muted)">内存泄漏 · 边界越界</text>
+
+  <rect x="275" y="338" width="180" height="80" rx="10" class="dd process" stroke="var(--line)" stroke-width="1.5" />
+  <text x="365" y="362" text-anchor="middle" font-size="14" fill="#312e81" font-weight="700">📐 质量检查 Agent</text>
+  <text x="365" y="382" text-anchor="middle" font-size="11" fill="var(--muted)">命名/风格 · 圈复杂度 · 代码重复</text>
+  <text x="365" y="398" text-anchor="middle" font-size="11" fill="var(--muted)">性能优化 · 错误处理</text>
+
+  <!-- Parallel annotation -->
+  <text x="370" y="218" text-anchor="middle" font-size="12" fill="#7c3aed" font-weight="600">⚡ 并行执行 · 毫秒级</text>
+
+  <!-- Arrow to merge -->
+  <line x1="455" y1="290" x2="530" y2="290" class="edge" marker-end="url(#arrow)" />
+
+  <!-- Merge & Score -->
+  <rect x="535" y="235" width="160" height="110" rx="10" class="dd storage" />
+  <text x="615" y="265" text-anchor="middle" font-size="14" fill="#0f766e" font-weight="700">🤖 结果汇总</text>
+  <text x="615" y="288" text-anchor="middle" font-size="11" fill="var(--muted)">三 Agent 报告合并</text>
+  <text x="615" y="305" text-anchor="middle" font-size="11" fill="var(--muted)">置信度 0-100 评分</text>
+  <text x="615" y="322" text-anchor="middle" font-size="11" fill="var(--muted)">阈值过滤误报</text>
+
+  <!-- Arrow to output -->
+  <line x1="695" y1="290" x2="770" y2="290" class="edge" marker-end="url(#arrow)" />
+
+  <!-- Output -->
+  <rect x="775" y="245" width="145" height="90" rx="10" class="dd neutral" />
+  <text x="847" y="275" text-anchor="middle" font-size="14" fill="var(--fg)" font-weight="700">📄 审查报告</text>
+  <text x="847" y="296" text-anchor="middle" font-size="11" fill="var(--muted)">Terminal / JSON</text>
+  <text x="847" y="312" text-anchor="middle" font-size="11" fill="var(--muted)">HTML / Markdown</text>
+
+  <!-- ===== SECTION 2: 核心功能 ===== -->
+  <rect x="20" y="460" width="920" height="260" rx="8" class="dd neutral" fill="none" />
+  <text x="480" y="485" text-anchor="middle" font-size="18" font-weight="700" fill="var(--fg)">✨ 核心功能特性</text>
+
+  <!-- Row 1 -->
+  <rect x="40" y="505" width="200" height="90" rx="8" class="dd input" />
+  <text x="140" y="530" text-anchor="middle" font-size="14" fill="#1e40af" font-weight="700">🔧 交互式修复</text>
+  <text x="140" y="550" text-anchor="middle" font-size="11" fill="var(--muted)">发现问题 → AI 生成补丁</text>
+  <text x="140" y="566" text-anchor="middle" font-size="11" fill="var(--muted)">一键 apply / skip / quit</text>
+  <text x="140" y="582" text-anchor="middle" font-size="11" fill="var(--muted)">review --interactive</text>
+
+  <rect x="260" y="505" width="200" height="90" rx="8" class="dd storage" />
+  <text x="360" y="530" text-anchor="middle" font-size="14" fill="#0f766e" font-weight="700">⚡ 增量审查</text>
+  <text x="360" y="550" text-anchor="middle" font-size="11" fill="var(--muted)">只审查新增/修改行</text>
+  <text x="360" y="566" text-anchor="middle" font-size="11" fill="var(--muted)">忽略已删除旧代码</text>
+  <text x="360" y="582" text-anchor="middle" font-size="11" fill="var(--muted)">大型PR效率翻倍</text>
+
+  <rect x="480" y="505" width="200" height="90" rx="8" class="dd" fill="#fef3c7" stroke="var(--line)" stroke-width="1" />
+  <text x="580" y="530" text-anchor="middle" font-size="14" fill="#92400e" font-weight="700">📊 HTML 可视化报告</text>
+  <text x="580" y="550" text-anchor="middle" font-size="11" fill="var(--muted)">深色/浅色模式</text>
+  <text x="580" y="566" text-anchor="middle" font-size="11" fill="var(--muted)">issue 高亮 + 代码</text>
+  <text x="580" y="582" text-anchor="middle" font-size="11" fill="var(--muted)">review --output html</text>
+
+  <rect x="700" y="505" width="220" height="90" rx="8" class="dd process" />
+  <text x="810" y="530" text-anchor="middle" font-size="14" fill="#312e81" font-weight="700">🪝 Git Hooks</text>
+  <text x="810" y="550" text-anchor="middle" font-size="11" fill="var(--muted)">pre-commit / pre-push</text>
+  <text x="810" y="566" text-anchor="middle" font-size="11" fill="var(--muted)">自动拦截低质量代码</text>
+  <text x="810" y="582" text-anchor="middle" font-size="11" fill="var(--muted)">hook install --min-score</text>
+
+  <!-- Row 2 -->
+  <rect x="40" y="610" width="200" height="90" rx="8" class="dd risk" />
+  <text x="140" y="635" text-anchor="middle" font-size="14" fill="#991b1b" font-weight="700">🛡️ 安全审计</text>
+  <text x="140" y="655" text-anchor="middle" font-size="11" fill="var(--muted)">OWASP TOP10 级别</text>
+  <text x="140" y="671" text-anchor="middle" font-size="11" fill="var(--muted)">依赖链漏洞扫描</text>
+  <text x="140" y="687" text-anchor="middle" font-size="11" fill="var(--muted)">review --audit</text>
+
+  <rect x="260" y="610" width="200" height="90" rx="8" class="dd green" />
+  <text x="360" y="635" text-anchor="middle" font-size="14" fill="var(--fg)" font-weight="700">🔄 主从模型回退</text>
+  <text x="360" y="655" text-anchor="middle" font-size="11" fill="var(--muted)">主模型故障自动切换</text>
+  <text x="360" y="671" text-anchor="middle" font-size="11" fill="var(--muted)">11个热门模型模板</text>
+  <text x="360" y="687" text-anchor="middle" font-size="11" fill="var(--muted)">Agent 可独立选模型</text>
+
+  <rect x="480" y="610" width="200" height="90" rx="8" class="dd neutral" />
+  <text x="580" y="635" text-anchor="middle" font-size="14" fill="var(--fg)" font-weight="700">📦 规则市场</text>
+  <text x="580" y="655" text-anchor="middle" font-size="11" fill="var(--muted)">搜索/安装/发布规则包</text>
+  <text x="580" y="671" text-anchor="middle" font-size="11" fill="var(--muted)">React · Node · TS 专项</text>
+  <text x="580" y="687" text-anchor="middle" font-size="11" fill="var(--muted)">rules search/install</text>
+
+  <rect x="700" y="610" width="220" height="90" rx="8" class="dd external" />
+  <text x="810" y="635" text-anchor="middle" font-size="14" fill="#92400e" font-weight="700">💾 智能缓存</text>
+  <text x="810" y="655" text-anchor="middle" font-size="11" fill="var(--muted)">SHA256 哈希去重</text>
+  <text x="810" y="671" text-anchor="middle" font-size="11" fill="var(--muted)">24小时有效期</text>
+  <text x="810" y="687" text-anchor="middle" font-size="11" fill="var(--muted)">同代码不重复审查</text>
+
+  <!-- ===== SECTION 3: 平台集成 ===== -->
+  <rect x="20" y="740" width="920" height="200" rx="8" class="dd neutral" fill="none" />
+  <text x="480" y="765" text-anchor="middle" font-size="18" font-weight="700" fill="var(--fg)">🌐 支持的平台</text>
+
+  <!-- Git platforms -->
+  <rect x="50" y="790" width="160" height="55" rx="10" class="dd neutral" />
+  <text x="130" y="823" text-anchor="middle" font-size="15" fill="var(--fg)" font-weight="600">🐙 GitHub</text>
+
+  <rect x="230" y="790" width="160" height="55" rx="10" class="dd" fill="#fc6d26" opacity="0.15" stroke="var(--line)" />
+  <text x="310" y="823" text-anchor="middle" font-size="15" fill="var(--fg)" font-weight="600">🦊 GitLab</text>
+
+  <rect x="410" y="790" width="160" height="55" rx="10" class="dd" fill="#c71d23" opacity="0.15" stroke="var(--line)" />
+  <text x="490" y="823" text-anchor="middle" font-size="15" fill="var(--fg)" font-weight="600">🏢 Gitee</text>
+
+  <rect x="590" y="790" width="160" height="55" rx="10" class="dd" fill="#2684ff" opacity="0.15" stroke="var(--line)" />
+  <text x="670" y="823" text-anchor="middle" font-size="15" fill="var(--fg)" font-weight="600">🔵 Bitbucket</text>
+
+  <rect x="770" y="790" width="150" height="55" rx="10" class="dd neutral" />
+  <text x="845" y="823" text-anchor="middle" font-size="15" fill="var(--fg)" font-weight="600">🖥️ 通用 Git</text>
+
+  <!-- CI/CD row -->
+  <text x="480" y="875" text-anchor="middle" font-size="14" fill="var(--muted)">CI/CD 集成：</text>
+  <rect x="300" y="888" width="160" height="35" rx="8" class="dd input" />
+  <text x="380" y="911" text-anchor="middle" font-size="13" fill="#1e40af" font-weight="600">GitHub Actions</text>
+
+  <rect x="475" y="888" width="120" height="35" rx="8" class="dd" fill="#fc6d26" opacity="0.2" stroke="var(--line)" />
+  <text x="535" y="911" text-anchor="middle" font-size="13" fill="var(--fg)" font-weight="600">GitLab CI</text>
+
+  <rect x="610" y="888" width="130" height="35" rx="8" class="dd green" />
+  <text x="675" y="911" text-anchor="middle" font-size="13" fill="var(--fg)" font-weight="600">VS Code 扩展</text>
+
+  <!-- ===== SECTION 4: 模型模板 ===== -->
+  <rect x="20" y="960" width="920" height="210" rx="8" class="dd neutral" fill="none" />
+  <text x="480" y="985" text-anchor="middle" font-size="18" font-weight="700" fill="var(--fg)">🧠 支持的 AI 模型（11个热门模板）</text>
+  <text x="480" y="1008" text-anchor="middle" font-size="13" fill="var(--muted)">只需选择模板 + 设置 API Key，零配置切换任意提供商</text>
+
+  <!-- Model badges row 1 -->
+  <rect x="40" y="1025" width="200" height="40" rx="8" class="dd input" />
+  <text x="140" y="1050" text-anchor="middle" font-size="13" fill="#1e40af" font-weight="700">⭐ DeepSeek V3/R1</text>
+
+  <rect x="255" y="1025" width="200" height="40" rx="8" class="dd neutral" />
+  <text x="355" y="1050" text-anchor="middle" font-size="13" fill="var(--fg)" font-weight="600">OpenAI GPT-4o/O3</text>
+
+  <rect x="470" y="1025" width="220" height="40" rx="8" class="dd process" />
+  <text x="580" y="1050" text-anchor="middle" font-size="13" fill="#312e81" font-weight="600">Claude Sonnet 4</text>
+
+  <rect x="705" y="1025" width="210" height="40" rx="8" class="dd storage" />
+  <text x="810" y="1050" text-anchor="middle" font-size="13" fill="#0f766e" font-weight="600">Google Gemini 2.5</text>
+
+  <!-- Model badges row 2 -->
+  <rect x="40" y="1080" width="280" height="40" rx="8" class="dd external" />
+  <text x="180" y="1105" text-anchor="middle" font-size="13" fill="#92400e" font-weight="600">阿里通义千问 Plus/Coder</text>
+
+  <rect x="335" y="1080" width="180" height="40" rx="8" class="dd neutral" />
+  <text x="425" y="1105" text-anchor="middle" font-size="13" fill="var(--fg)" font-weight="600">智谱 GLM-4</text>
+
+  <rect x="530" y="1080" width="180" height="40" rx="8" class="dd green" />
+  <text x="620" y="1105" text-anchor="middle" font-size="13" fill="var(--fg)" font-weight="600">月之暗面 Moonshot</text>
+
+  <rect x="725" y="1080" width="190" height="40" rx="8" class="dd risk" />
+  <text x="820" y="1105" text-anchor="middle" font-size="13" fill="#991b1b" font-weight="600">Mistral Codestral</text>
+
+  <!-- Footnote -->
+  <text x="480" y="1150" text-anchor="middle" font-size="12" fill="var(--muted)">一键配置：coderev setup --model deepseek --fallback qwen ｜ 支持主模型/Agent 级独立选模型</text>
+
+  <!-- ===== SECTION 5: 使用场景 ===== -->
+  <rect x="20" y="1180" width="920" height="180" rx="8" class="dd neutral" fill="none" />
+  <text x="480" y="1205" text-anchor="middle" font-size="18" font-weight="700" fill="var(--fg)">🎯 适用场景</text>
+
+  <rect x="40" y="1225" width="270" height="115" rx="8" class="dd input" />
+  <text x="175" y="1250" text-anchor="middle" font-size="14" fill="#1e40af" font-weight="700">👤 独立开发者</text>
+  <text x="175" y="1272" text-anchor="middle" font-size="11" fill="var(--muted)">git commit 前自动把关</text>
+  <text x="175" y="1290" text-anchor="middle" font-size="11" fill="var(--muted)">用 AI 替代人工 code review</text>
+  <text x="175" y="1308" text-anchor="middle" font-size="11" fill="var(--muted)">$ npm install -g coderev-cli</text>
+
+  <rect x="330" y="1225" width="270" height="115" rx="8" class="dd process" />
+  <text x="465" y="1250" text-anchor="middle" font-size="14" fill="#312e81" font-weight="700">👥 研发团队</text>
+  <text x="465" y="1272" text-anchor="middle" font-size="11" fill="var(--muted)">统一代码规范 · 减少 CR 负担</text>
+  <text x="465" y="1290" text-anchor="middle" font-size="11" fill="var(--muted)">PR 自动审查 → 行内评论</text>
+  <text x="465" y="1308" text-anchor="middle" font-size="11" fill="var(--muted)">coderev review --pr --post</text>
+
+  <rect x="620" y="1225" width="300" height="115" rx="8" class="dd storage" />
+  <text x="770" y="1250" text-anchor="middle" font-size="14" fill="#0f766e" font-weight="700">🚀 CI/CD 管道</text>
+  <text x="770" y="1272" text-anchor="middle" font-size="11" fill="var(--muted)">GitHub Action / GitLab CI</text>
+  <text x="770" y="1290" text-anchor="middle" font-size="11" fill="var(--muted)">高风险代码自动拦截</text>
+  <text x="770" y="1308" text-anchor="middle" font-size="11" fill="var(--muted)">coderev review --ci</text>
+
+  <!-- ===== CTA ===== -->
+  <rect x="200" y="1390" width="560" height="90" rx="12" class="dd" fill="#7c3aed" opacity="0.12" stroke="#7c3aed" stroke-width="2" />
+  <text x="480" y="1422" text-anchor="middle" font-size="18" fill="#7c3aed" font-weight="700">🚀 立即开始</text>
+  <text x="480" y="1448" text-anchor="middle" font-size="14" fill="var(--fg)" font-family="monospace">npm install -g coderev-cli &amp;&amp; coderev setup --model deepseek</text>
+
+  <!-- Footer -->
+  <text x="480" y="1500" text-anchor="middle" font-size="13" fill="var(--muted)">🌐 npm: coderev-cli ｜ ⭐ GitHub: jishuanjimingtian/coderev</text>
+  <text x="480" y="1522" text-anchor="middle" font-size="13" fill="var(--muted)">📋 npm: coderev-cli ｜ ⭐ GitHub: jishuanjimingtian/coderev ｜ 💰 GitHub Sponsors</text>
+  <text x="480" y="1550" text-anchor="middle" font-size="12" fill="var(--muted)">Node.js ≥ 18 · MIT License · 支持 Windows / macOS / Linux</text>
+
+  <!-- Arrow marker -->
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,0 L10,5 L0,10 Z" fill="var(--line)" />
+    </marker>
+  </defs>
+</svg>
+</main>

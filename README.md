@@ -32,9 +32,29 @@
   - [coderev rules（规则市场）🆕](#coderev-rules规则市场)
   - [coderev doctor（环境诊断）🆕](#coderev-doctor环境诊断)
 - [配置详解](#配置详解)
+- [Token 生成和使用说明](#token-生成和使用说明)
+  - [GitHub Personal Access Token](#1-github-personal-access-token)
+  - [GitLab Personal Access Token](#2-gitlab-personal-access-token)
+  - [Gitee Personal Access Token](#3-gitee-personal-access-token)
+  - [GitCode Personal Access Token](#4-gitcode-personal-access-token)
+  - [Bitbucket App Password](#5-bitbucket-app-password)
+  - [GitHub App JWT Token（coderev serve）](#6-github-app-jwt-tokencoderev-serve)
+  - [Token 使用方式总结](#token-使用方式总结)
 - [平台集成](#平台集成)
 - [CI/CD 集成](#cicd-集成)
 - [VS Code 扩展 🆕](#vs-code-扩展)
+- [完整接口使用说明](#完整接口使用说明)
+  - [命令一览](#命令一览)
+  - [API Key（AI 模型）配置接口](#api-keyai-模型配置接口)
+  - [审查相关接口](#审查相关接口)
+  - [PR/MR 平台接口](#prmr-平台接口)
+  - [修复相关接口](#修复相关接口)
+  - [Hook 接口](#hook-接口)
+  - [统计与缓存接口](#统计与缓存接口)
+  - [配置与诊断接口](#配置与诊断接口)
+  - [GitHub App 服务接口](#github-app-服务接口)
+  - [规则市场接口](#规则市场接口)
+  - [VS Code 扩展接口](#vs-code-扩展接口)
 - [FAQ / 常见问题](#faq--常见问题)
 
 ---
@@ -886,6 +906,244 @@ build/
 
 ---
 
+## Token 生成和使用说明
+
+coderev 在访问各 Git 平台的 PR/MR 时需要 **Personal Access Token** 进行身份认证。以下逐个说明各平台的 Token 生成方法和使用方式。
+
+### 1. GitHub Personal Access Token
+
+#### 生成步骤
+
+1. 登录 GitHub → 右上角头像 → **Settings**
+2. 左侧菜单 → **Developer settings** → **Personal access tokens** → **Tokens (classic)**
+3. 点击 **Generate new token → Generate new token (classic)**
+4. 填写 Note（如 `coderev`），设置过期时间
+5. 勾选以下权限：
+
+| Scope | 用途 |
+|-------|------|
+| `repo`（全部） | 读取私有仓库代码、PR diff |
+| `read:org` | 读取组织信息（可选） |
+
+6. 点击 **Generate token** → **复制 Token**（只显示一次！）
+
+> 💡 也可使用 **Fine-grained token**：选择仓库 → Repository permissions → Pull requests: Read and write
+
+#### 使用方式
+
+```bash
+# 方式一：命令行参数
+coderev review --pr 42 --github-token ghp_xxxx
+
+# 方式二：环境变量（推荐）
+# Windows PowerShell:
+$env:GITHUB_TOKEN="ghp_xxxx"
+# Linux / macOS:
+export GITHUB_TOKEN="ghp_xxxx"
+
+# 方式三：写入配置文件
+# .coderevrc.json 中:
+"github": { "token": "ghp_xxxx" }
+```
+
+---
+
+### 2. GitLab Personal Access Token
+
+#### 生成步骤
+
+1. 登录 GitLab → 右上角头像 → **Preferences**
+2. 左侧菜单 → **Access Tokens**
+3. 填写 Token name（如 `coderev`），设置过期时间
+4. 勾选以下权限：
+
+| Scope | 用途 |
+|-------|------|
+| `read_api` | 读取 MR、diff 信息 |
+| `read_repository` | 读取仓库代码 |
+| `api`（可选） | 发布 MR 评论（需要时选此代替上面两个） |
+
+5. 点击 **Create personal access token** → **复制 Token**
+
+#### 使用方式
+
+```bash
+# 方式一：命令行参数
+coderev review --gl 42 --gitlab-token glpat-xxxx
+
+# 方式二：环境变量（推荐）
+export GITLAB_TOKEN="glpat-xxxx"
+
+# 方式三：配置文件
+# .coderevrc.json 中:
+"gitlab": { "token": "glpat-xxxx" }
+```
+
+> **GitLab MR URL 格式**：`owner/repo!42` → 用 `--gl owner/repo!42`
+
+---
+
+### 3. Gitee Personal Access Token
+
+#### 生成步骤
+
+1. 登录 Gitee → 右上角头像 → **设置**
+2. 左侧菜单 → **私人令牌**
+3. 点击 **生成新令牌**
+4. 填写描述，勾选权限：
+
+| 权限 | 用途 |
+|------|------|
+| `pull_requests` | 读取 PR 信息 |
+| `projects` | 读取仓库信息 |
+
+5. 点击 **提交** → **复制 Token**
+
+#### 使用方式
+
+```bash
+# 方式一：命令行参数
+coderev review --gee owner/repo!42 --gee-token gitee_xxxx
+
+# 方式二：环境变量（推荐）
+export GITEE_TOKEN="gitee_xxxx"
+
+# 方式三：配置文件
+"gitee": { "token": "gitee_xxxx" }
+```
+
+> **注意**：Gitee 不支持行内评论，PR 审查仅支持摘要评论模式。
+
+---
+
+### 4. GitCode Personal Access Token
+
+#### 生成步骤
+
+1. 登录 GitCode → 右上角头像 → **设置**
+2. 左侧菜单 → **访问令牌**
+3. 点击 **创建访问令牌**
+4. 填写名称，勾选权限：
+
+| 权限 | 用途 |
+|------|------|
+| `api` | 读取 MR 和仓库信息 |
+| `read_repository` | 读取代码 |
+
+5. 点击 **创建** → **复制 Token**
+
+#### 使用方式
+
+```bash
+# 方式一：命令行参数
+coderev review --gc owner/repo!42 --gc-token gitcode_xxxx
+
+# 方式二：环境变量（推荐）
+export GITCODE_TOKEN="gitcode_xxxx"
+```
+
+---
+
+### 5. Bitbucket App Password
+
+#### 生成步骤
+
+1. 登录 Bitbucket → 左下角头像 → **Personal settings**
+2. 左侧菜单 → **App passwords**
+3. 点击 **Create app password**
+4. 填写 Label（如 `coderev`），勾选权限：
+
+| 权限 | 用途 |
+|------|------|
+| `Repositories: Read` | 读取仓库和 PR |
+| `Pull requests: Read` | 读取 PR diff |
+| `Pull requests: Write`（可选） | 发布 PR 评论 |
+
+5. 点击 **Create** → **复制密码**
+
+> ⚠️ Bitbucket App Password 格式为 `username:password`，**用户名是 Bitbucket 用户名，不是邮箱**。
+
+#### 使用方式
+
+```bash
+# 方式一：命令行参数
+coderev review --bb owner/repo#42 --bb-token your_username:app_password
+
+# 方式二：环境变量（推荐）
+export BITBUCKET_APP_PASSWORD="your_username:app_password"
+
+# 方式三：配置文件
+"bitbucket": { "username": "your_username", "appPassword": "xxx" }
+```
+
+---
+
+### 6. GitHub App JWT Token（coderev serve）
+
+`coderev serve` 使用 GitHub App 身份认证而非 Personal Access Token。
+
+#### 生成/获取步骤
+
+1. 创建 GitHub App（详见 [docs/github-app.md](docs/github-app.md)）
+2. 获取以下凭证：
+
+| 凭证 | 说明 | 获取位置 |
+|------|------|---------|
+| **App ID** | GitHub App 的标识数字 | GitHub App 设置页顶部 |
+| **Private Key (.pem)** | RSA 私钥，用于生成 JWT | App 设置页 → Generate private key |
+| **Webhook Secret** | 验证 webhook 请求签名 | App 设置页 → Webhook secret |
+
+#### JWT 生成原理
+
+coderev 内部自动处理 JWT 生成（无需手动操作），其流程为：
+
+```
+App ID + Private Key → 签名 JWT → 交换 Installation Token → 访问仓库
+```
+
+- JWT 有效期：10 分钟（GitHub App 最大限制）
+- Installation Token 有效期：1 小时，由 coderev 自动获取和管理
+
+#### 使用方式
+
+```bash
+# 方式一：命令行参数
+coderev serve \
+  --app-id 123456 \
+  --private-key "$(cat /path/to/key.pem)" \
+  --webhook-secret "your-secret"
+
+# 方式二：环境变量（推荐）
+export GITHUB_APP_ID=123456
+export GITHUB_APP_PRIVATE_KEY="$(cat /path/to/key.pem)"
+export GITHUB_APP_WEBHOOK_SECRET="your-secret"
+coderev serve
+
+# 方式三：.coderevrc.json 配置
+"githubApp": {
+  "appId": 123456,
+  "privateKey": "-----BEGIN RSA PRIVATE KEY-----\n...",
+  "webhookSecret": "your-secret"
+}
+```
+
+---
+
+### Token 使用方式总结
+
+| 平台 | Token 类型 | CLI 参数 | 环境变量 | 配置文件字段 |
+|------|-----------|---------|---------|------------|
+| GitHub | Personal Access Token | `--github-token` | `GITHUB_TOKEN` | `github.token` |
+| GitLab | Personal Access Token | `--gitlab-token` | `GITLAB_TOKEN` | `gitlab.token` |
+| Gitee | Private Token | `--gee-token` | `GITEE_TOKEN` | `gitee.token` |
+| GitCode | Access Token | `--gc-token` | `GITCODE_TOKEN` | `gitcode.token` |
+| Bitbucket | App Password | `--bb-token` | `BITBUCKET_APP_PASSWORD` | `bitbucket.appPassword` |
+| GitHub App | JWT + Installation | `--app-id` + `--private-key` | `GITHUB_APP_ID` + `GITHUB_APP_PRIVATE_KEY` | `githubApp.appId` + `githubApp.privateKey` |
+
+**优先级**（从高到低）：命令行参数 > 环境变量 > 配置文件
+
+---
+
 ## 平台集成
 
 ### 支持的 Git 平台
@@ -1056,6 +1314,502 @@ cd vscode && npm install && npm run package
 
 ---
 
+## 完整接口使用说明
+
+> 本章汇总 coderev 所有命令、参数、环境变量和配置项，作为完整 API / 接口参考。
+
+### 命令一览
+
+| 命令 | 用途 | 版本 |
+|------|------|------|
+| `coderev review` | 审查代码 diff / PR / MR | v0.1.0 |
+| `coderev fix` | AI 自动修复问题 | v0.1.0 |
+| `coderev hook` | Git Hook 安装/卸载 | v0.1.0 |
+| `coderev stats` | 审查统计看板 | v0.2.0 |
+| `coderev cache` | 缓存管理 | v0.1.0 |
+| `coderev config` | 配置管理 | v0.1.0 |
+| `coderev init` | 项目初始化 | v0.1.0 |
+| `coderev serve` | GitHub App Webhook 服务 | v1.0.18 |
+| `coderev models` | 模型模板列表 | v1.0.24 |
+| `coderev setup` | 模型配置 | v1.0.24 |
+| `coderev rules` | 规则市场 | v1.0.23 |
+| `coderev doctor` | 环境诊断 | v1.0.26 |
+
+---
+
+### API Key（AI 模型）配置接口
+
+coderev 通过 **OpenAI 兼容 API** 调用各 AI 服务商。配置 AI 接口有三种方式：
+
+#### 方式一：`coderev setup` 交互式配置
+
+```bash
+# 选择模板（最简方式）
+coderev setup --model deepseek
+
+# 主模型 + 备用模型
+coderev setup --model deepseek --fallback qwen
+
+# 不同 Agent 使用不同模型
+coderev setup --agent-security deepseek-r1 --agent-quality qwen
+
+# 查看当前配置
+coderev setup
+```
+
+**支持的 `--model` 模板名**：`deepseek` / `openai` / `qwen` / `claude` / `gemini` / `zhipu` / `moonshot` / `codestral` / `deepseek-r1` / `openai-o3` / `qwen-coder`
+
+#### 方式二：手动配置 `.coderevrc.json`
+
+```json
+{
+  "ai": {
+    "provider": "deepseek",
+    "baseURL": "https://api.deepseek.com",
+    "model": "deepseek-chat",
+    "apiKeyEnv": "DEEPSEEK_API_KEY",
+    "temperature": 0.3,
+    "maxTokens": 4096,
+    "fallback": {
+      "enabled": true,
+      "provider": "openai",
+      "baseURL": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+      "model": "qwen-plus",
+      "temperature": 0.3
+    },
+    "agents": {
+      "security": {
+        "provider": "deepseek",
+        "baseURL": "https://api.deepseek.com",
+        "model": "deepseek-reasoner"
+      },
+      "quality": {
+        "provider": "openai",
+        "baseURL": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+        "model": "qwen-plus"
+      }
+    }
+  }
+}
+```
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `ai.provider` | string | ✅ | AI 提供商标识，目前固定为 `"openai"` 或 `"deepseek"` |
+| `ai.baseURL` | string | ❌ | API 地址，支持任何 OpenAI 兼容接口 |
+| `ai.model` | string | ✅ | 模型名称 |
+| `ai.apiKey` | string | ❌ | 直接写入 API Key（不推荐，不够安全） |
+| `ai.apiKeyEnv` | string | ✅ | 从环境变量读取 API Key 的变量名 |
+| `ai.temperature` | number | ❌ | 0-1，默认 0.3（越低越确定） |
+| `ai.maxTokens` | number | ❌ | 最大输出 token，默认 4096 |
+| `ai.fallback` | object | ❌ | 备用模型配置（主模型失败时自动切换） |
+| `ai.agents` | object | ❌ | 按 Agent 角色指定不同模型 |
+| `ai.agents.security` | object | ❌ | 安全审计 Agent 的模型覆盖 |
+| `ai.agents.bugs` | object | ❌ | 缺陷检测 Agent 的模型覆盖 |
+| `ai.agents.quality` | object | ❌ | 质量检查 Agent 的模型覆盖 |
+
+#### 方式三：环境变量
+
+| 环境变量 | 提供商 | 对应模板 |
+|---------|--------|---------|
+| `DEEPSEEK_API_KEY` | DeepSeek | `deepseek` / `deepseek-r1` |
+| `OPENAI_API_KEY` | OpenAI | `openai` / `openai-o3` |
+| `DASHSCOPE_API_KEY` | 阿里云百炼 | `qwen` / `qwen-coder` |
+| `ANTHROPIC_API_KEY` | Anthropic | `claude` |
+| `GEMINI_API_KEY` | Google | `gemini` |
+| `ZHIPU_API_KEY` | 智谱 AI | `zhipu` |
+| `MOONSHOT_API_KEY` | 月之暗面 | `moonshot` |
+| `MISTRAL_API_KEY` | Mistral | `codestral` |
+
+#### API Key 获取链接
+
+| 提供商 | 获取地址 |
+|--------|---------|
+| DeepSeek | https://platform.deepseek.com/api_keys |
+| OpenAI | https://platform.openai.com/api-keys |
+| 阿里云百炼 | https://bailian.console.aliyun.com/ |
+| Anthropic | https://console.anthropic.com/keys |
+| Google AI | https://aistudio.google.com/apikey |
+| 智谱 AI | https://open.bigmodel.cn/usercenter/apikeys |
+| 月之暗面 | https://platform.moonshot.cn/ |
+| Mistral | https://console.mistral.ai/api-keys/ |
+
+---
+
+### 审查相关接口
+
+#### `coderev review` — 核心审查
+
+```
+coderev review [选项]
+```
+
+**输入来源**（优先级从高到低）：
+
+| 来源 | 参数 | 说明 |
+|------|------|------|
+| 管道 stdin | （无参数） | `git diff main \| coderev review` |
+| Git 仓库 | `--repo <path>` + `--base` / `--head` | 在指定仓库中生成 diff |
+| Diff 文件 | `--file <path>` | 从文件读取 diff |
+| GitHub PR | `--pr <ref>` | 拉取 GitHub PR diff |
+| GitLab MR | `--gl <ref>` | 拉取 GitLab MR diff |
+| Gitee PR | `--gee <ref>` | 拉取 Gitee PR diff |
+| GitCode MR | `--gc <ref>` | 拉取 GitCode MR diff |
+| Bitbucket PR | `--bb <ref>` | 拉取 Bitbucket PR diff |
+
+**审查参数**：
+
+| 参数 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `--config, -c <path>` | string | — | 指定配置文件路径 |
+| `--output, -o <format>` | enum | `terminal` | 输出格式：`terminal` / `json` / `markdown` / `html` |
+| `--min-confidence <n>` | number | `60` | 置信度阈值（0-100），低于此值的结果被过滤 |
+| `--ci` | flag | — | CI 模式，发现 issue 以非零退出码终止 |
+| `--no-cache` | flag | — | 跳过缓存，强制重新审查 |
+| `--incremental` | flag | — | 增量模式，只关注新增/修改的行 |
+| `--interactive` | flag | — | 交互模式，逐条选择是否修复 |
+| `--audit` | flag | — | 安全审计模式（OWASP 级别检查） |
+| `--single` | flag | — | 单 Agent 模式（兼容旧版，省 token） |
+| `--agents <list>` | string | — | 逗号分隔的 Agent 列表，如 `security,bugs,quality` |
+| `--blame` | flag | — | 启用 git blame，区分新增 vs 已有问题 |
+
+**PR/MR 回贴参数**：
+
+| 参数 | 说明 |
+|------|------|
+| `--post` | 审查完成后自动回贴评论到 PR/MR（配合 `--pr`/`--gl` 等使用） |
+| `--inline` | 以行内方式回贴评论（仅 GitHub/GitLab 支持，配合 `--pr`/`--gl`） |
+| `--all` | 审查仓库所有开启的 PR（配合 `--pr owner/repo` 使用） |
+
+**平台 Token 参数**：
+
+| 参数 | 说明 |
+|------|------|
+| `--github-token <token>` | GitHub Personal Access Token |
+| `--gitlab-token <token>` | GitLab Personal Access Token |
+| `--gee-token <token>` | Gitee Personal Access Token |
+| `--gc-token <token>` | GitCode Access Token |
+| `--bb-token <token>` | Bitbucket App Password（`username:password`） |
+
+**返回结构**（JSON 模式）：
+
+```json
+{
+  "summary": "审查摘要",
+  "score": 85,
+  "issues": [
+    {
+      "type": "error|warning|info",
+      "severity": "high|medium|low",
+      "confidence": 85,
+      "file": "src/file.js",
+      "line": 42,
+      "message": "问题描述",
+      "suggestion": "修复建议",
+      "detectedBy": "security|bugs|quality|legacy"
+    }
+  ],
+  "suggestions": ["改进建议"],
+  "praise": ["好的实践"],
+  "_agents": { "total": 3, "summary": "...", "errors": 0 },
+  "_blameContext": { "newIssues": 2, "preExistingIssues": 1 }
+}
+```
+
+---
+
+### PR/MR 平台接口
+
+每个平台有独立的参数前缀和 ref 格式：
+
+| 平台 | 参数 | Ref 格式 | 示例 |
+|------|------|---------|------|
+| GitHub | `--pr` | `owner/repo#N` 或 `N` | `--pr 42` 或 `--pr owner/repo#42` |
+| GitLab | `--gl` | `owner/repo!N` | `--gl 42` 或 `--gl owner/repo!42` |
+| Gitee | `--gee` | `owner/repo!N` | `--gee owner/repo!42` |
+| GitCode | `--gc` | `owner/repo!N` | `--gc owner/repo!42` |
+| Bitbucket | `--bb` | `owner/repo#N` | `--bb owner/repo#42` |
+
+**自动检测**：GitHub 和 GitLab 支持只传数字（`--pr 42`），coderev 会从 `git remote` 自动检测仓库名。
+
+**支持的 URL 格式**（直接粘贴浏览器的 PR URL 也可以）：
+
+```bash
+coderev review --pr https://github.com/user/repo/pull/42
+coderev review --gl https://gitlab.com/user/repo/-/merge_requests/42
+coderev review --gee https://gitee.com/user/repo/pulls/42
+```
+
+**回贴评论的完整流程**：
+
+```bash
+# 1. 审查 PR + 回贴摘要评论
+coderev review --pr 42 --post --github-token ghp_xxx
+
+# 2. 审查 PR + 行内评论（更精细）
+coderev review --pr 42 --inline --github-token ghp_xxx
+
+# 3. 批量审查所有开放 PR
+coderev review --pr owner/repo --all --github-token ghp_xxx --post
+
+# 4. GitLab MR 审查 + 回贴
+coderev review --gl 42 --post --gitlab-token glpat_xxx
+```
+
+---
+
+### 修复相关接口
+
+#### `coderev fix` — 自动修复
+
+```
+coderev fix [选项]
+```
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `--file, -f <path>` | string | 二选一 | 指定 diff 文件路径 |
+| `--pr <ref>` | string | 二选一 | 指定 PR 编号 |
+| `--apply` | flag | ❌ | 直接应用补丁到文件中 |
+| `--github-token <token>` | string | ❌ | GitHub Token（配合 --pr 使用） |
+
+**输入来源**：
+1. `--file` 指定 diff 文件
+2. `--pr` 拉取 PR diff
+3. 管道 stdin（默认）
+
+**修复流程**：
+1. 读取 diff → 运行审查 → 识别问题
+2. 调用 AI 生成统一补丁（unified patch）
+3. 输出补丁内容到终端
+4. 如果带 `--apply`，自动执行 `git apply`
+
+```bash
+# 生成 diff → 修复 → 输出补丁
+coderev fix --file changes.diff
+
+# 直接从 PR 修复并应用
+coderev fix --pr 42 --apply --github-token ghp_xxx
+
+# 管道模式
+git diff main | coderev fix --apply
+```
+
+#### 交互式修复（coderev review --interactive）
+
+```bash
+coderev review --interactive
+```
+
+逐条展示 issue，可选操作：
+
+| 按键 | 操作 | 说明 |
+|------|------|------|
+| `a` | Apply fix | AI 生成补丁并输出 |
+| `s` | Skip | 跳过当前 issue |
+| `q` | Quit | 退出，已修复的保存为 `coderev-fixes.patch` |
+
+---
+
+### Hook 接口
+
+#### `coderev hook` — Git Hooks 管理
+
+```
+coderev hook <action> [hook-type] [选项]
+```
+
+| 参数 | 值 | 说明 |
+|------|-----|------|
+| `<action>` | `install` / `remove` | 安装或卸载 hook |
+| `[hook-type]` | `pre-commit` / `pre-push` | Hook 类型（默认 `pre-commit`） |
+| `--min-score <n>` | number | 最低评分阈值（默认 50），低于此值阻止提交/推送 |
+
+**Hook 行为**：
+- `pre-commit`：`git commit` 前自动运行审查，评分低于阈值阻止提交
+- `pre-push`：`git push` 前自动运行审查，评分低于阈值阻止推送
+
+```bash
+coderev hook install                      # 安装 pre-commit
+coderev hook install pre-commit --min-score 70
+coderev hook install pre-push
+coderev hook remove                       # 移除全部
+coderev hook remove pre-commit            # 移除指定
+```
+
+---
+
+### 统计与缓存接口
+
+#### `coderev stats` — 审查统计
+
+```
+coderev stats [period] [选项]
+```
+
+| 参数 | 值 | 说明 |
+|------|-----|------|
+| `[period]` | `day` / `week` / `month` / `all` | 统计周期（默认 `all`） |
+| `--clear` | flag | 清除全部审查历史 |
+
+**输出内容**：总审查次数、平均分、最高/最低分、问题数、类型分布、严重程度分布、趋势图
+
+#### `coderev cache` — 缓存管理
+
+```
+coderev cache [action]
+```
+
+| 参数 | 值 | 说明 |
+|------|-----|------|
+| `[action]` | `status` / `clear` | 查看缓存状态或清空缓存 |
+
+**缓存机制**：
+- 基于 diff SHA256 哈希
+- 有效期 24 小时
+- 缓存目录：`~/.coderev/cache/`
+- 可跳过缓存：`coderev review --no-cache`
+
+---
+
+### 配置与诊断接口
+
+#### `coderev config` — 配置管理
+
+```
+coderev config [action]
+```
+
+| 参数 | 值 | 说明 |
+|------|-----|------|
+| `[action]` | `show` / `validate` / `path` | 显示配置 / 验证配置 / 显示配置文件路径 |
+
+```bash
+coderev config           # 显示当前配置（API Key 已脱敏）
+coderev config validate  # 验证配置完整性
+coderev config path      # 输出配置文件路径
+```
+
+#### `coderev init` — 项目初始化
+
+```
+coderev init [选项]
+```
+
+| 参数 | 说明 |
+|------|------|
+| `--github-action` | 同时生成 `.github/workflows/coderev.yml` |
+| `--gitlab-ci` | 同时生成 `.gitlab-ci.yml` |
+
+**生成文件**：
+1. `.coderevrc.json` — 审查配置
+2. `.coderevignore` — 忽略文件列表（glob）
+3. `.coderevhint` — AI 项目上下文提示
+
+#### `coderev doctor` — 环境诊断
+
+```
+coderev doctor [选项]
+```
+
+| 参数 | 说明 |
+|------|------|
+| `-c, --config <path>` | 指定配置文件路径 |
+| `--json` | JSON 格式输出 |
+
+**诊断项目**：Node.js 版本 → Git 环境 → 配置文件 → API Key → AI 服务商连通性
+
+---
+
+### GitHub App 服务接口
+
+#### `coderev serve` — Webhook 服务器
+
+```
+coderev serve [选项]
+```
+
+| 参数 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `-p, --port <n>` | number | `3000` | HTTP 端口 |
+| `--app-id <id>` | string | — | GitHub App ID |
+| `--private-key <key>` | string | — | RSA 私钥 PEM |
+| `--webhook-secret <secret>` | string | — | Webhook 签名密钥 |
+| `--review-mode <mode>` | enum | `comment` | 审查模式：`comment` / `inline` / `check` |
+| `--auto-approve` | flag | — | 无问题 PR 自动 approve |
+| `--min-confidence <n>` | number | `60` | 置信度阈值 |
+
+**HTTP 端点**：
+
+| 路径 | 方法 | 说明 |
+|------|------|------|
+| `/webhook` | POST | GitHub App webhook 入口 |
+| `/health` | GET | 健康检查 |
+
+**健康检查返回**：
+```json
+{
+  "status": "ok",
+  "version": "1.0.0",
+  "uptime": 3600
+}
+```
+
+---
+
+### 规则市场接口
+
+#### `coderev rules` — 规则包管理
+
+```
+coderev rules <action> [选项]
+```
+
+| 动作 | 说明 | 示例 |
+|------|------|------|
+| `search [query]` | 搜索规则市场 | `coderev rules search react` |
+| `install <name>` | 安装规则包 | `coderev rules install react-security` |
+| `publish` | 发布本地规则 | `coderev rules publish --name my-rules` |
+| `list` | 查看已安装 | `coderev rules list` |
+| `uninstall <name>` | 卸载规则包 | `coderev rules uninstall react-security` |
+| `info <name>` | 规则包详情 | `coderev rules info react-security` |
+
+**参数**：
+
+| 参数 | 说明 |
+|------|------|
+| `-q, --query <text>` | 搜索关键词 |
+| `-n, --name <name>` | 规则包名称 |
+| `--version <ver>` | 发布版本号 |
+| `--desc <text>` | 发布描述 |
+| `--api-url <url>` | 自定义市场 API 地址（默认 `https://rules.coderev.dev/api`） |
+
+**安装目录**：`.coderev-marketplace/installed.json`（清单） + `.coderevrc.json` 中 `rules.custom` 数组（规则，带 `_source` 标记）
+
+---
+
+### VS Code 扩展接口
+
+#### 扩展命令
+
+| 命令 ID | 说明 |
+|---------|------|
+| `coderev.reviewWorkspace` | 审查整个工作区 |
+| `coderev.reviewFile` | 审查当前打开的文件 |
+| `coderev.fixFile` | 修复当前文件的问题 |
+
+#### 扩展配置项
+
+| 配置键 | 类型 | 默认值 | 说明 |
+|--------|------|--------|------|
+| `coderev.enabled` | boolean | `true` | 是否启用扩展 |
+| `coderev.lintOnSave` | boolean | `false` | 保存文件时自动审查 |
+| `coderev.minConfidence` | number | `60` | 最低置信度阈值 |
+| `coderev.apiKey` | string | `""` | AI 提供商的 API Key |
+| `coderev.model` | string | `"deepseek-chat"` | 使用的模型 |
+
+---
+
 ## FAQ / 常见问题
 
 ### Q：为什么审查结果为空？
@@ -1075,6 +1829,27 @@ A：可以，审查时加 `--no-cache` 参数即可跳过缓存。
 
 ### Q：怎么给 coderev 加自己的规则？
 A：在 `.coderevrc.json` 的 `rules.custom` 数组中添加。详见上方「自定义规则」章节。
+
+### Q：GitHub / GitLab Token 权限不够怎么办？
+A：确保 Token 至少有以下权限：
+- **GitHub**：`repo`（全部）
+- **GitLab**：`read_api` + `read_repository`（如要发布评论再加 `api`）
+- **Gitee**：`pull_requests` + `projects`
+- **GitCode**：`api` + `read_repository`
+- **Bitbucket**：`Repositories: Read` + `Pull requests: Read`
+
+### Q：Token 泄漏了怎么办？
+A：立即到对应平台撤销旧 Token，重新生成。建议始终用环境变量存储 Token，不要直接写到 `.coderevrc.json` 中，并确保 `.coderevrc.json` 在 `.gitignore` 中。
+
+### Q：如何获取各 AI 提供商 API Key？
+A：详见上方「API Key（AI 模型）配置接口」→ [API Key 获取链接](#api-key-获取链接)。每个提供商都有免费额度或试用额度。
+
+### Q：`coderev serve` 报 "Missing GITHUB_APP_ID or GITHUB_APP_PRIVATE_KEY"
+A：GitHub App 需要三个凭据，确认都已设置：
+- `GITHUB_APP_ID`（数字，如 `123456`）
+- `GITHUB_APP_PRIVATE_KEY`（PEM 格式私钥全文）
+- `GITHUB_APP_WEBHOOK_SECRET`（推荐，与 App 设置页一致）
+详见上方「Token 生成和使用说明」→ [GitHub App JWT Token](#6-github-app-jwt-tokencoderev-serve)
 
 ---
 ## Contributing
