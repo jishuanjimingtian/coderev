@@ -1,6 +1,6 @@
-const { describe, it } = require('node:test');
+const { describe, it, beforeEach } = require('node:test');
 const assert = require('assert');
-const { BUILTIN_TEMPLATES, resolveTemplate, listTemplates, getTemplate } = require('./models');
+const { BUILTIN_TEMPLATES, resolveTemplate, listTemplates, getTemplate, autoDetectProvider, AUTO_DETECT_PRIORITY } = require('./models');
 
 describe('models.js', () => {
   it('should have all 11 built-in templates', () => {
@@ -76,5 +76,142 @@ describe('models.js', () => {
     assert.ok(t);
     assert.strictEqual(t.tier, 'reasoning');
     assert.strictEqual(t.model, 'deepseek-reasoner');
+  });
+});
+
+describe('autoDetectProvider', () => {
+  const savedEnv = {};
+
+  beforeEach(() => {
+    // Save and clear all known API key env vars
+    const allKeys = Object.values(BUILTIN_TEMPLATES).map(t => t.apiKeyEnv);
+    for (const key of [...new Set(allKeys)]) {
+      savedEnv[key] = process.env[key];
+      delete process.env[key];
+    }
+  });
+
+  // Restore env vars after each test
+  const { afterEach } = require('node:test');
+  afterEach(() => {
+    for (const [key, val] of Object.entries(savedEnv)) {
+      if (val !== undefined) {
+        process.env[key] = val;
+      } else {
+        delete process.env[key];
+      }
+    }
+  });
+
+  it('should return null when no API keys are set', () => {
+    const result = autoDetectProvider();
+    assert.strictEqual(result, null);
+  });
+
+  it('should detect a single available provider', () => {
+    process.env.DEEPSEEK_API_KEY = 'sk-test-deepseek-key';
+    const result = autoDetectProvider();
+    assert.ok(result);
+    assert.strictEqual(result.chosen, 'deepseek');
+    assert.ok(result.allDetected.includes('deepseek'));
+    assert.ok(result.allDetected.includes('deepseek-r1'));
+    assert.strictEqual(result.template.model, 'deepseek-chat');
+  });
+
+  it('should prioritize deepseek over openai when both are available', () => {
+    process.env.DEEPSEEK_API_KEY = 'sk-deepseek';
+    process.env.OPENAI_API_KEY = 'sk-openai';
+    const result = autoDetectProvider();
+    assert.ok(result);
+    assert.strictEqual(result.chosen, 'deepseek');
+    assert.ok(result.allDetected.includes('deepseek'));
+    assert.ok(result.allDetected.includes('openai'));
+  });
+
+  it('should detect qwen as fallback when deepseek is not available', () => {
+    process.env.DASHSCOPE_API_KEY = 'sk-qwen';
+    const result = autoDetectProvider();
+    assert.ok(result);
+    assert.strictEqual(result.chosen, 'qwen-coder');
+    assert.ok(result.allDetected.includes('qwen-coder'));
+    assert.ok(result.allDetected.includes('qwen'));
+  });
+
+  it('should detect openai when deepseek and qwen are not available', () => {
+    process.env.OPENAI_API_KEY = 'sk-openai-test';
+    const result = autoDetectProvider();
+    assert.ok(result);
+    assert.strictEqual(result.chosen, 'openai');
+    assert.ok(result.allDetected.includes('openai'));
+    assert.ok(result.allDetected.includes('openai-o3'));
+  });
+
+  it('should detect claude when ANTHROPIC_API_KEY is set', () => {
+    process.env.ANTHROPIC_API_KEY = 'sk-ant-test';
+    const result = autoDetectProvider();
+    assert.ok(result);
+    assert.strictEqual(result.chosen, 'claude');
+  });
+
+  it('should detect gemini when GEMINI_API_KEY is set', () => {
+    process.env.GEMINI_API_KEY = 'test-gemini-key';
+    const result = autoDetectProvider();
+    assert.ok(result);
+    assert.strictEqual(result.chosen, 'gemini');
+  });
+
+  it('should detect zhipu when ZHIPU_API_KEY is set', () => {
+    process.env.ZHIPU_API_KEY = 'test-zhipu-key';
+    const result = autoDetectProvider();
+    assert.ok(result);
+    assert.strictEqual(result.chosen, 'zhipu');
+  });
+
+  it('should detect moonshot when MOONSHOT_API_KEY is set', () => {
+    process.env.MOONSHOT_API_KEY = 'test-moonshot-key';
+    const result = autoDetectProvider();
+    assert.ok(result);
+    assert.strictEqual(result.chosen, 'moonshot');
+  });
+
+  it('should detect codestral when MISTRAL_API_KEY is set', () => {
+    process.env.MISTRAL_API_KEY = 'test-mistral-key';
+    const result = autoDetectProvider();
+    assert.ok(result);
+    assert.strictEqual(result.chosen, 'codestral');
+  });
+
+  it('should return all detected providers in allDetected', () => {
+    process.env.DEEPSEEK_API_KEY = 'sk-ds';
+    process.env.OPENAI_API_KEY = 'sk-oa';
+    process.env.ANTHROPIC_API_KEY = 'sk-ant';
+    const result = autoDetectProvider();
+    assert.ok(result);
+    assert.strictEqual(result.chosen, 'deepseek');
+    assert.ok(result.allDetected.includes('deepseek'));
+    assert.ok(result.allDetected.includes('openai'));
+    assert.ok(result.allDetected.includes('claude'));
+  });
+
+  it('AUTO_DETECT_PRIORITY should include all standard provider names', () => {
+    const allNames = Object.keys(BUILTIN_TEMPLATES);
+    const standardProviders = allNames.filter(n => {
+      const t = BUILTIN_TEMPLATES[n];
+      // Each unique apiKeyEnv should appear at least once
+      return true;
+    });
+    // Priority should cover at least all standard-tier templates
+    const standardKeys = [...new Set(
+      allNames
+        .filter(n => BUILTIN_TEMPLATES[n].tier !== 'reasoning')
+        .map(n => BUILTIN_TEMPLATES[n].apiKeyEnv)
+    )];
+    // Check that priority covers each unique key
+    const priorityKeys = [...new Set(
+      AUTO_DETECT_PRIORITY.map(n => BUILTIN_TEMPLATES[n]?.apiKeyEnv).filter(Boolean)
+    )];
+    for (const key of standardKeys) {
+      assert.ok(priorityKeys.includes(key), `Priority should include provider with key: ${key}`);
+    }
   });
 });

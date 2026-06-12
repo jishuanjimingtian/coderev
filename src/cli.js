@@ -888,9 +888,11 @@ program
   .option('--agent-security <name>', 'Model for security agent')
   .option('--agent-bugs <name>', 'Model for bug detection agent')
   .option('--agent-quality <name>', 'Model for quality agent')
+  .option('--auto', 'Auto-detect available providers from environment variables')
+  .option('--quick', 'Alias for --auto')
   .action((options) => {
     const fs = require('fs');
-    const { resolveTemplate } = require('./models');
+    const { resolveTemplate, autoDetectProvider, listTemplates } = require('./models');
     const configPath = path.join(process.cwd(), '.coderevrc.json');
 
     let config = {};
@@ -899,6 +901,86 @@ program
     }
 
     if (!config.ai) config.ai = {};
+
+    // ── Auto-detect mode ──
+    if (options.auto || options.quick) {
+      console.log(chalk.bold('\n🔍 Auto-detecting AI providers...\n'));
+
+      const result = autoDetectProvider();
+
+      if (!result) {
+        console.log(chalk.yellow('⚠ No API key environment variables detected.'));
+        console.log(chalk.gray('\n  Supported providers and their env vars:'));
+        const allTemplates = listTemplates();
+        const seen = new Set();
+        for (const t of allTemplates) {
+          if (!seen.has(t.apiKeyEnv)) {
+            seen.add(t.apiKeyEnv);
+            console.log(chalk.gray(`    ${t.apiKeyEnv}  →  ${t.name} (${t.desc})`));
+          }
+        }
+        console.log(chalk.blue('\n  💡 Set one of these env vars and run `coderev setup --auto` again.'));
+        console.log(chalk.blue('     Or use `coderev setup --model <name>` to pick manually.'));
+        return;
+      }
+
+      // Show detection summary
+      console.log(chalk.bold('📋 Detection Results / 检测结果:'));
+      console.log('━'.repeat(50));
+
+      // List all detected keys
+      for (const name of result.allDetected) {
+        const t = result.allDetected.includes(name) ? require('./models').getTemplate(name) : null;
+        if (t) {
+          const masked = process.env[t.apiKeyEnv].slice(0, 6) + '...' + process.env[t.apiKeyEnv].slice(-4);
+          console.log(chalk.green(`  ✔ ${t.apiKeyEnv}`) + chalk.gray(` → ${name}  (${masked})`));
+        }
+      }
+
+      // Show providers that were NOT detected
+      const allNames = Object.keys(require('./models').BUILTIN_TEMPLATES);
+      const uniqueNotDetected = [...new Set(
+        allNames.filter(n => !result.allDetected.includes(n))
+      )];
+
+      console.log('');
+      console.log(chalk.bold(`✨ Selected: ${chalk.green(result.chosen)}`));
+      console.log(chalk.gray(`   Provider: ${result.template.provider}`));
+      console.log(chalk.gray(`   Model:    ${result.template.model}`));
+      console.log(chalk.gray(`   API Key:  ${result.template.apiKeyEnv}`));
+      console.log('');
+
+      // Write config
+      try {
+        const resolved = resolveTemplate(result.chosen);
+        Object.assign(config.ai, resolved);
+
+        // Also add fallback if second provider is available
+        const remaining = result.allDetected.filter(n => n !== result.chosen);
+        if (remaining.length > 0) {
+          const fallbackName = remaining[0];
+          const fallbackResolved = resolveTemplate(fallbackName);
+          config.ai.fallback = {
+            enabled: true,
+            provider: fallbackResolved.provider,
+            baseURL: fallbackResolved.baseURL,
+            model: fallbackResolved.model,
+            apiKeyEnv: fallbackResolved.apiKeyEnv,
+            temperature: fallbackResolved.temperature,
+            maxTokens: fallbackResolved.maxTokens,
+          };
+          console.log(chalk.blue(`   Fallback: ${fallbackName} (${fallbackResolved.model})`));
+        }
+
+        fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+        console.log(chalk.green(`\n✔ Config saved to ${configPath}`));
+        console.log(chalk.blue('  Run `coderev review` to start reviewing code!'));
+      } catch (err) {
+        console.error(chalk.red(`✖ ${err.message}`));
+        process.exit(1);
+      }
+      return;
+    }
 
     // Set primary model
     if (options.model) {

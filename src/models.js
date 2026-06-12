@@ -152,9 +152,68 @@ function getTemplate(name) {
   return BUILTIN_TEMPLATES[name] || null;
 }
 
+/**
+ * Priority order for auto-detection:
+ *   recommended tier first, then standard tier
+ */
+const AUTO_DETECT_PRIORITY = [
+  'deepseek',
+  'qwen-coder',
+  'qwen',
+  'openai',
+  'claude',
+  'gemini',
+  'zhipu',
+  'moonshot',
+  'codestral',
+];
+
+/**
+ * Auto-detect the best available AI provider by scanning environment
+ * variables for known API keys.
+ *
+ * Scans all built-in template apiKeyEnv vars and returns the first
+ * matching template in priority order (recommended tier first).
+ *
+ * @returns {{ template: object, name: string, detected: string[], allDetected: string[] } | null}
+ */
+function autoDetectProvider() {
+  const detected = [];
+
+  // Scan all templates for available API keys
+  for (const [name, t] of Object.entries(BUILTIN_TEMPLATES)) {
+    if (process.env[t.apiKeyEnv]) {
+      detected.push(name);
+    }
+  }
+
+  if (detected.length === 0) return null;
+
+  // Pick the highest-priority detected template
+  let chosen = null;
+  for (const name of AUTO_DETECT_PRIORITY) {
+    if (detected.includes(name)) {
+      chosen = name;
+      break;
+    }
+  }
+
+  // Fallback: if default priority list missed something, pick first detected
+  if (!chosen) chosen = detected[0];
+
+  return {
+    template: BUILTIN_TEMPLATES[chosen],
+    name: chosen,
+    chosen,
+    allDetected: detected,
+  };
+}
+
 module.exports = {
   BUILTIN_TEMPLATES,
   resolveTemplate,
   listTemplates,
   getTemplate,
+  autoDetectProvider,
+  AUTO_DETECT_PRIORITY,
 };
