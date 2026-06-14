@@ -43,6 +43,9 @@ program
   .option('--min-confidence <number>', 'Minimum confidence threshold 0-100 (default: 60)', '60')
   .option('--agents <list>', 'Comma-separated agent list: security,bugs,quality')
   .option('--blame', 'Enable git blame context analysis to distinguish new vs pre-existing issues')
+  .option('--rag', 'Enable RAG codebase context retrieval (requires coderev index first)')
+  .option('--issue <url>', 'Validate that PR addresses a linked GitHub/GitLab issue')
+  .option('--verify-issue', 'Auto-verify PR addresses linked issues from commit messages')
   .action(async (options) => {
     try {
       const config = loadConfig(options.config);
@@ -183,7 +186,34 @@ program
         single: options.single || undefined,
         minConfidence: parseInt(options.minConfidence) || undefined,
         blame: options.blame || undefined,
+        rag: options.rag || undefined,
+        repoRoot: options.repo || options.config ? path.dirname(options.config) : process.cwd(),
       });
+
+      // ── Issue Validation ──
+      if (options.issue) {
+        const { validateIssue } = require('./issue-validator');
+        try {
+          const issueResult = await validateIssue(options.issue, diff, {
+            token: options.githubToken || options.gitlabToken,
+            repoPath: options.repo || process.cwd(),
+            reviewResult: result,
+          });
+          // Append issue validation to result
+          result._issueValidation = issueResult.report;
+          result._issueValidationFormatted = issueResult.formatted;
+        } catch (err) {
+          result._issueValidation = { error: err.message };
+        }
+      }
+
+      if (options.verifyIssue) {
+        const { findRelatedIssues, parseCommitLog } = require('./issue-validator');
+        const repoPath = options.repo || process.cwd();
+        const commitLog = parseCommitLog(repoPath);
+        const relatedIssues = findRelatedIssues(diff, commitLog);
+        result._relatedIssuesFound = relatedIssues;
+      }
 
       let output;
       if (options.output === 'json') {
@@ -323,6 +353,12 @@ program
         };
         processIssues(0);
         return;
+      }
+
+      // ── Print issue validation report if available ──
+      if (result._issueValidationFormatted) {
+        // Print after main output (sent to console.error so it's visible even with piped output)
+        console.error(result._issueValidationFormatted);
       }
 
       // ── CI Mode ──
@@ -1187,6 +1223,45 @@ program
     }
   });
 
+program
+  .command('index')
+  .description('Build codebase index for RAG-powered code reviews')
+  .option('-r, --repo <path>', 'Path to git repository', '.')
+  .option('--max-files <number>', 'Maximum files to index (default: 500)', '500')
+  .option('--json', 'Output as JSON')
+  .action(async (options) => {
+    try {
+      const { buildIndex, loadIndex, INDEX_DIR } = require('./rag-indexer');
+      const repoRoot = path.resolve(options.repo);
+
+      console.error(chalk.blue(`📚 Building codebase index for ${repoRoot}...`));
+      console.error(chalk.gray(`   Max files: ${options.maxFiles}`));
+
+      const index = buildIndex(repoRoot, { maxFiles: parseInt(options.maxFiles) });
+
+      if (options.json) {
+        console.log(JSON.stringify(index.stats, null, 2));
+      } else {
+        console.log(chalk.green(`\n✅ Index built successfully!`));
+        console.log(chalk.bold(`\n📊 Statistics:`));
+        console.log(`   Files scanned:    ${index.stats.filesScanned}`);
+        console.log(`   Symbols extracted: ${index.stats.symbolsExtracted}`);
+        console.log(`   Time:             ${index.stats.timeMs}ms`);
+        console.log(`   Stored at:        ${path.join(repoRoot, INDEX_DIR)}`);
+        if (Object.keys(index.stats.languageBreakdown).length > 0) {
+          console.log(chalk.bold(`\n🔤 Language breakdown:`));
+          for (const [lang, count] of Object.entries(index.stats.languageBreakdown).sort((a, b) => b[1] - a[1])) {
+            console.log(`   ${lang}: ${count} symbols`);
+          }
+        }
+        console.log(chalk.blue(`\n💡 Tip: Run \`coderev review --rag\` to use codebase context in reviews.`));
+      }
+    } catch (err) {
+      console.error(chalk.red(`✖ ${err.message}`));
+      process.exit(1);
+    }
+  });
+
 program.parse(process.argv);
 
 // ── Helpers ───────────────────────────────────────────────────
@@ -1285,6 +1360,10 @@ function formatTerminal(result) {
       if (bc.unknownIssues > 0) enLines.push('  ' + chalk.blue('? Unknown: ') + chalk.bold(bc.unknownIssues));
       enLines.push('  ' + chalk.cyan('  Files analyzed: ') + bc.filesAnalyzed);
     }
+  }
+  if (result._rag) {
+    enLines.push('\n' + chalk.bold('RAG Context:'));
+    enLines.push('  ' + chalk.magenta(`Indexed ${result._rag.indexedSymbols} symbols from codebase`));
   }
   enLines.push('\n' + '━'.repeat(50));
 

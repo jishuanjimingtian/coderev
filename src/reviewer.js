@@ -3,6 +3,7 @@ const { cacheKey, getCached, setCached } = require('./cache');
 const { recordReview } = require('./stats');
 const { getRuleDescriptions } = require('./rules');
 const { analyzeDiffContext, tagIssuesWithBlame } = require('./blame');
+const { loadIndex, buildReviewContext, isIndexStale } = require('./rag-indexer');
 
 // ── 多智能体并行审查 ──
 
@@ -122,6 +123,7 @@ function buildAgentPrompts(diff, config, options = {}) {
   const rulesConfig = config.rules || {};
   const ruleLines = getRuleDescriptions(rulesConfig, diff);
   const auditBlock = options.audit ? '\n- **SECURITY AUDIT MODE ACTIVE**' : '';
+  const ragContext = options.ragContext || '';
 
   return AGENT_ROLES.map(role => {
     return {
@@ -136,8 +138,10 @@ Your task: Review the provided git diff and ${role.focus}
 ${options.projectHint ? `Project context:
 ${options.projectHint}
 
-` : ''}
-Return a JSON object:
+` : ''}${ragContext ? `Codebase context (RAG):
+${ragContext}
+
+` : ''}Return a JSON object:
 \`\`\`json
 {
   "issues": [
@@ -220,6 +224,7 @@ async function runParallelAgents(apiKey, config, prompts) {
  * @param {string} [options.ignorePattern] - File patterns to ignore
  * @param {number} [options.minConfidence] - Minimum confidence threshold (default: 60)
  * @param {boolean} [options.blame] - Enable git blame context analysis
+ * @param {boolean} [options.rag] - Enable RAG codebase context retrieval
  * @returns {Promise<object>} Review result with issues, suggestions, score, etc.
  */
 async function reviewDiff(diff, config, options = {}) {
@@ -234,8 +239,8 @@ async function reviewDiff(diff, config, options = {}) {
     diff = filterDiffByPattern(diff, options.ignorePattern);
   }
 
-  // Check cache
-  if (!options.noCache && !options.single && !options.audit) {
+  // Check cache (skip cache when RAG is enabled — context may differ)
+  if (!options.noCache && !options.single && !options.audit && !options.rag) {
     const ckey = cacheKey(diff);
     const cached = getCached(ckey);
     if (cached) {
@@ -247,11 +252,31 @@ async function reviewDiff(diff, config, options = {}) {
   const projectHint = loadProjectHint();
   const minConfidence = options.minConfidence ?? 60;
 
+  // ── RAG codebase context retrieval ──
+  let ragContext = '';
+  let _ragStats = null;
+  if (options.rag) {
+    const repoRoot = options.repoRoot || process.cwd();
+    let index = loadIndex(repoRoot);
+    if (!index || isIndexStale(repoRoot)) {
+      // Auto-build index if needed
+      const { buildIndex } = require('./rag-indexer');
+      index = buildIndex(repoRoot);
+    }
+    if (index && index.symbols && index.symbols.length > 0) {
+      ragContext = buildReviewContext(index, diff);
+      _ragStats = {
+        indexedSymbols: index.symbols.length,
+        retrievedSymbols: ragContext ? (ragContext.match(/`(\w+)` \*\*/g) || []).length : 0,
+      };
+    }
+  }
+
   let result;
 
   if (options.single) {
     // Legacy single-agent mode
-    const prompt = buildReviewPrompt(diff, config, { ...options, projectHint });
+    const prompt = buildReviewPrompt(diff, config, { ...options, projectHint, ragContext });
     const aiResponse = await callAI(apiKey, prompt, config);
     result = parseReviewResponse(aiResponse);
     // Add default confidence to legacy results
@@ -263,7 +288,7 @@ async function reviewDiff(diff, config, options = {}) {
     }
   } else {
     // Multi-agent parallel review
-    const prompts = buildAgentPrompts(diff, config, { ...options, projectHint });
+    const prompts = buildAgentPrompts(diff, config, { ...options, projectHint, ragContext });
     const { results: agentResults, errors } = await runParallelAgents(apiKey, config, prompts);
 
     // Merge and score issues
@@ -293,6 +318,11 @@ async function reviewDiff(diff, config, options = {}) {
     if (issues.length > 0) {
       result.suggestions = issues.slice(0, 3).map(i => i.suggestion).filter(Boolean);
     }
+  }
+
+  // ── Attach RAG stats ──
+  if (_ragStats) {
+    result._rag = _ragStats;
   }
 
   // ── Git blame context analysis ──
