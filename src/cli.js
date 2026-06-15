@@ -46,6 +46,9 @@ program
   .option('--rag', 'Enable RAG codebase context retrieval (requires coderev index first)')
   .option('--issue <url>', 'Validate that PR addresses a linked GitHub/GitLab issue')
   .option('--verify-issue', 'Auto-verify PR addresses linked issues from commit messages')
+  .option('--agentic', 'Agentic fix mode: find issues → generate fixes → verify → retry')
+  .option('--agentic-rounds <number>', 'Max fix-and-verify rounds (default: 3)', '3')
+  .option('--agentic-auto-apply', 'Auto-apply verified fixes to working directory')
   .action(async (options) => {
     try {
       const config = loadConfig(options.config);
@@ -291,6 +294,71 @@ program
         } else {
           console.error(chalk.yellow('⚠ No line-level issues to post inline'));
         }
+      }
+
+      // ── Agentic Fix Mode ──
+      if (options.agentic && (result.issues || []).length > 0) {
+        const { runAgenticFix } = require('./agentic-fixer');
+        const apiKey = getApiKey(config);
+        const maxRounds = parseInt(options.agenticRounds) || 3;
+        const repoRoot = options.repo || process.cwd();
+
+        console.error(chalk.bold('\n🤖 Agentic Fix Mode / 智能修复模式'));
+        console.error(chalk.blue(`   Auto-fixing ${result.issues.filter(i => i.confidence >= 60).length} issues (max ${maxRounds} rounds)...`));
+
+        const agenticResult = await runAgenticFix(diff, result, apiKey, config, {
+          maxRounds,
+          repoRoot,
+          autoApply: options.agenticAutoApply || false,
+          onProgress: (phase, idx, details) => {
+            if (phase === 'fixing') {
+              console.error(chalk.cyan(`  [${idx}/${details.total}] Fixing: ${details.issue.message.slice(0, 60)}...`));
+            } else if (phase === 'verify') {
+              process.stderr.write(chalk.gray('.'));
+            }
+          },
+        });
+
+        console.error(chalk.bold(agenticResult.summary));
+
+        // Attach agentic result to output
+        result._agenticFix = agenticResult;
+
+        // Save patches if any
+        if (agenticResult.allPatches) {
+          const patchesPath = path.join(require('os').tmpdir(), 'coderev-agentic-fixes.patch');
+          const fs = require('fs');
+          fs.writeFileSync(patchesPath, agenticResult.allPatches, 'utf8');
+          console.error(chalk.green(`\n✔ Agentic fixes saved to: ${patchesPath}`));
+          if (!options.agenticAutoApply) {
+            console.error(chalk.gray(`   Apply with: git apply "${patchesPath}"`));
+          }
+          // Patch auto-apply
+          if (options.agenticAutoApply) {
+            try {
+              const { execSync } = require('child_process');
+              execSync(`git apply "${patchesPath}"`, { cwd: repoRoot, stdio: 'pipe' });
+              console.error(chalk.green('✔ Patches applied to working directory!'));
+            } catch (applyErr) {
+              console.error(chalk.red(`✖ Failed to apply patches: ${applyErr.stderr?.toString().slice(0, 200) || applyErr.message}`));
+            }
+          }
+        }
+
+        // Also output patches to stdout for piping
+        if (options.output === 'json') {
+          output = JSON.stringify({ ...result, _agenticFix: agenticResult }, null, 2);
+        } else if (options.output === 'markdown') {
+          output = formatMarkdown(result) + '\n\n## 🤖 Agentic Fix\n\n' + agenticResult.summary.replace(/\n/g, '\n> ');
+        }
+
+        if (options.ci && agenticResult.fixedCount < agenticResult.totalIssues) {
+          console.error(chalk.red(`✖ CI: ${agenticResult.failedCount} issues could not be auto-fixed`));
+          process.exitCode = 1;
+        }
+
+        console.log(output);
+        return;
       }
 
       // ── Interactive Fix Mode ──

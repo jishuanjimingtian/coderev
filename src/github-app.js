@@ -247,7 +247,25 @@ async function handlePREvent(event, payload, appConfig) {
 
   console.error(chalk.cyan(`[${owner}/${repo}#${prNumber}] Review complete: ${result.score}/100, ${issueCount} issues`));
 
-  // 5. Post review
+  // 5. Generate PR Summary + Walkthrough (if diff is non-trivial)
+  let prSummary = null;
+  if (diff && diff.length > 200) {
+    try {
+      const { generatePrSummary, formatPrSummaryMarkdown } = require('./pr-summary');
+      const apiKey = getApiKey(loadConfig());
+      if (apiKey) {
+        prSummary = await generatePrSummary(diff, apiKey, loadConfig(), {
+          prTitle: pr.title || '',
+          prBody: pr.body || '',
+          includeRisk: true,
+        });
+      }
+    } catch (err) {
+      console.error(chalk.yellow(`[${owner}/${repo}#${prNumber}] PR summary generation failed: ${err.message}`));
+    }
+  }
+
+  // 6. Post review
   try {
     if (appConfig.reviewMode === 'inline') {
       // Inline mode — post review comments at file level
@@ -255,14 +273,21 @@ async function handlePREvent(event, payload, appConfig) {
     } else {
       // Default: post a PR comment summary
       const { postPrComment } = require('./github');
-      const md = formatAppMarkdown(result, ref);
+      let md = formatAppMarkdown(result, ref);
+
+      // Prepend PR Summary if generated
+      if (prSummary && prSummary.walkthrough && prSummary.walkthrough.length > 0) {
+        const summaryMd = formatPrSummaryMarkdown(prSummary);
+        md = summaryMd + '\n---\n\n' + md;
+      }
+
       await postPrComment(ref, md, token);
     }
   } catch (err) {
     console.error(chalk.yellow(`[${owner}/${repo}#${prNumber}] Failed to post comment: ${err.message}`));
   }
 
-  // 6. Set final commit status (check mode or always)
+  // 7. Set final commit status (check mode or always)
   try {
     const state = issueCount === 0 ? 'success' : (result.score >= 60 ? 'neutral' : 'failure');
     const description = issueCount === 0
@@ -271,7 +296,7 @@ async function handlePREvent(event, payload, appConfig) {
     await setCommitStatus(token, ref, pr.head.sha, state, description);
   } catch {}
 
-  // 7. Auto-approve if configured and no issues
+  // 8. Auto-approve if configured and no issues
   if (appConfig.autoApprove && issueCount === 0) {
     try {
       await approvePR(token, ref, pr.head.sha);

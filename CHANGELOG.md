@@ -1,5 +1,45 @@
 # Changelog
 
+## [v1.3.1] — 2026-06-15
+
+### 🤖 Agentic Fix Loop (`--agentic`)
+
+- **`src/agentic-fixer.js`**：多轮自动修复循环 — find → fix → verify → retry
+  - `coderev review --agentic`：发现问题后自动生成修复 patch、应用、验证、重试
+  - `--agentic-rounds <n>`：设置每 issue 最大修复重试轮数（默认 3）
+  - `--agentic-auto-apply`：验证通过的修复自动 git apply 到工作目录
+  - 修复验证：语法检查 (Node.js `--check`) + 项目 lint/test 命令
+  - patch diff 合并引擎：解析 fix patch 并将其 hunks 合并到原始 diff 中
+  - 进度反馈：实时显示每个 issue 的修复进度
+  - 修复 patch 保存到 tmp/coderev-agentic-fixes.patch
+  - CI 模式集成：未修复的 issue 返回 exit code 1
+- **`src/agentic-fixer.test.js`**：18 个单元测试
+  - patch 文件解析（单文件/多文件/多 hunk/空输入/new file）
+  - hunk 提取与合并
+  - buildSummary 格式化
+
+### 📋 PR Summary + Walkthrough (`coderev serve`)
+
+- **`src/pr-summary.js`**：自动生成 PR 摘要、文件漫游和风险评估
+  - `generatePrSummary()`：AI 分析 diff 生成结构化摘要
+  - 文件漫游：每个变更文件的类型、变更类型、关键变更列表
+  - 风险评估：low/medium/high 三级 + 具体关注点和缓解措施
+  - 审查清单：为 human reviewer 生成可操作检查项
+  - `formatPrSummaryMarkdown()`：生成折叠式 Markdown（PR comment 友好）
+  - `formatPrSummaryTerminal()`：终端输出格式
+  - 自动集成到 `coderev serve`：PR 事件触发后前置生成摘要
+- **`src/pr-summary.test.js`**：8 个单元测试
+  - Markdown 格式化（完整/空漫游/缺失风险评估/高风险/可折叠开关）
+  - 终端输出格式化
+
+### 🎯 价值
+
+- **从「发现问题」到「解决问题」**：`--agentic` 标志开启自动修复闭环
+- **PR 上下文增强**：serve 模式自动生成 PR Summary + Walkthrough，提升团队协作效率
+- **差异化竞争**：补齐 Qodo Agentic Mode + CodeRabbit PR 摘要的核心能力
+
+---
+
 ## [v1.3.0] — 2026-06-14
 
 ### 🔗 Issue 关联校验
