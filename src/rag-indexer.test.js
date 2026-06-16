@@ -361,12 +361,14 @@ describe('isIndexStale', () => {
     assert.equal(isIndexStale('/nonexistent-path'), true);
   });
 
-  it('should detect stale index', () => {
+  it('should detect stale index', async () => {
     const repo = createTestRepo({
       'src/app.js': 'function test() {}',
     });
 
     buildIndex(repo);
+    // Wait 50ms to ensure at least some time has passed since index build
+    await new Promise(r => setTimeout(r, 50));
     assert.equal(isIndexStale(repo, 0), true, 'should be stale with maxAge 0');
 
     fs.rmSync(repo, { recursive: true, force: true });
