@@ -3,9 +3,9 @@ const assert = require('assert');
 const { BUILTIN_TEMPLATES, resolveTemplate, listTemplates, getTemplate, autoDetectProvider, AUTO_DETECT_PRIORITY } = require('./models');
 
 describe('models.js', () => {
-  it('should have all 11 built-in templates', () => {
+  it('should have all 14 built-in templates', () => {
     const templates = listTemplates();
-    assert.strictEqual(templates.length, 11);
+    assert.strictEqual(templates.length, 14);
   });
 
   it('should resolve deepseek template correctly', () => {
@@ -63,12 +63,14 @@ describe('models.js', () => {
     }
   });
 
-  it('should have recommended and reasoning tiers', () => {
+  it('should have recommended, reasoning, and fast tiers', () => {
     const templates = listTemplates();
     const recommended = templates.filter(t => t.tier === 'recommended');
     const reasoning = templates.filter(t => t.tier === 'reasoning');
-    assert.ok(recommended.length >= 2, 'should have at least 2 recommended templates');
+    const fast = templates.filter(t => t.tier === 'fast');
+    assert.ok(recommended.length >= 4, 'should have at least 4 recommended templates');
     assert.ok(reasoning.length >= 2, 'should have at least 2 reasoning templates');
+    assert.ok(fast.length >= 1, 'should have at least 1 fast template');
   });
 
   it('deepseek-r1 should be a reasoning model', () => {
@@ -118,14 +120,27 @@ describe('autoDetectProvider', () => {
     assert.strictEqual(result.template.model, 'deepseek-chat');
   });
 
-  it('should prioritize deepseek over openai when both are available', () => {
+  it('should prioritize gpt-5 over deepseek when both API keys are available', () => {
     process.env.DEEPSEEK_API_KEY = 'sk-deepseek';
     process.env.OPENAI_API_KEY = 'sk-openai';
     const result = autoDetectProvider();
     assert.ok(result);
-    assert.strictEqual(result.chosen, 'deepseek');
-    assert.ok(result.allDetected.includes('deepseek'));
+    // gpt-5 is highest priority when OPENAI_API_KEY is available
+    assert.strictEqual(result.chosen, 'gpt-5');
+    assert.ok(result.allDetected.includes('gpt-5'));
+    assert.ok(result.allDetected.includes('gpt-5-minimal'));
     assert.ok(result.allDetected.includes('openai'));
+    assert.ok(result.allDetected.includes('openai-o3'));
+  });
+
+  it('should detect haiku-thinking when ANTHROPIC_API_KEY is set', () => {
+    process.env.ANTHROPIC_API_KEY = 'sk-ant-test';
+    const result = autoDetectProvider();
+    assert.ok(result);
+    // haiku-thinking is higher priority than claude in AUTO_DETECT_PRIORITY
+    assert.strictEqual(result.chosen, 'haiku-thinking');
+    assert.ok(result.allDetected.includes('haiku-thinking'));
+    assert.ok(result.allDetected.includes('claude'));
   });
 
   it('should detect qwen as fallback when deepseek is not available', () => {
@@ -137,20 +152,24 @@ describe('autoDetectProvider', () => {
     assert.ok(result.allDetected.includes('qwen'));
   });
 
-  it('should detect openai when deepseek and qwen are not available', () => {
+  it('should detect gpt-5 as top openai priority when only OPENAI_API_KEY is set', () => {
     process.env.OPENAI_API_KEY = 'sk-openai-test';
     const result = autoDetectProvider();
     assert.ok(result);
-    assert.strictEqual(result.chosen, 'openai');
+    // gpt-5 is highest in AUTO_DETECT_PRIORITY among OPENAI_API_KEY users
+    assert.strictEqual(result.chosen, 'gpt-5');
+    assert.ok(result.allDetected.includes('gpt-5'));
+    assert.ok(result.allDetected.includes('gpt-5-minimal'));
     assert.ok(result.allDetected.includes('openai'));
     assert.ok(result.allDetected.includes('openai-o3'));
   });
 
-  it('should detect claude when ANTHROPIC_API_KEY is set', () => {
+  it('should detect haiku-thinking as top priority when ANTHROPIC_API_KEY is set', () => {
     process.env.ANTHROPIC_API_KEY = 'sk-ant-test';
     const result = autoDetectProvider();
     assert.ok(result);
-    assert.strictEqual(result.chosen, 'claude');
+    // haiku-thinking is highest priority for ANTHROPIC_API_KEY
+    assert.strictEqual(result.chosen, 'haiku-thinking');
   });
 
   it('should detect gemini when GEMINI_API_KEY is set', () => {
@@ -187,9 +206,12 @@ describe('autoDetectProvider', () => {
     process.env.ANTHROPIC_API_KEY = 'sk-ant';
     const result = autoDetectProvider();
     assert.ok(result);
-    assert.strictEqual(result.chosen, 'deepseek');
-    assert.ok(result.allDetected.includes('deepseek'));
+    // gpt-5 highest priority (OPENAI_API_KEY + top of AUTO_DETECT_PRIORITY)
+    assert.strictEqual(result.chosen, 'gpt-5');
+    assert.ok(result.allDetected.includes('gpt-5'));
     assert.ok(result.allDetected.includes('openai'));
+    assert.ok(result.allDetected.includes('deepseek'));
+    assert.ok(result.allDetected.includes('haiku-thinking'));
     assert.ok(result.allDetected.includes('claude'));
   });
 

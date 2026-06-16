@@ -100,6 +100,31 @@ const BUILTIN_TEMPLATES = {
     desc: 'Mistral Codestral — 专注代码生成与审查',
     tier: 'standard',
   },
+  'gpt-5': {
+    provider: 'openai',
+    baseURL: 'https://api.openai.com/v1',
+    model: 'gpt-5',
+    apiKeyEnv: 'OPENAI_API_KEY',
+    desc: 'GPT-5 — PR Benchmark 72.2分（最高），Criticality Filtering，代码审查首选',
+    tier: 'recommended',
+  },
+  'gpt-5-minimal': {
+    provider: 'openai',
+    baseURL: 'https://api.openai.com/v1',
+    model: 'gpt-5-mini',
+    apiKeyEnv: 'OPENAI_API_KEY',
+    desc: 'GPT-5 Minimal — 快速CI场景优化，PR Benchmark 62.7分，毫秒级反馈',
+    tier: 'fast',
+  },
+  'haiku-thinking': {
+    provider: 'openai',
+    baseURL: 'https://api.anthropic.com/v1',
+    model: 'claude-haiku-4-5-20251001',
+    apiKeyEnv: 'ANTHROPIC_API_KEY',
+    desc: 'Claude Haiku 4.5 Thinking — 58% win over Sonnet 4.5, 1/3价格，小模型推理标杆',
+    tier: 'recommended',
+    thinking: { type: 'enabled', budget_tokens: 4096 },
+  },
 };
 
 /**
@@ -126,6 +151,8 @@ function resolveTemplate(templateName, overrides = {}) {
     apiKeyEnv: overrides.apiKeyEnv || template.apiKeyEnv,
     temperature: overrides.temperature ?? 0.3,
     maxTokens: overrides.maxTokens || 4096,
+    // Thinking budget for reasoning models (Haiku Thinking, DeepSeek R1, etc.)
+    thinking: overrides.thinking || template.thinking || undefined,
     _template: templateName,
   };
 }
@@ -157,8 +184,11 @@ function getTemplate(name) {
  *   recommended tier first, then standard tier
  */
 const AUTO_DETECT_PRIORITY = [
+  'gpt-5',
+  'haiku-thinking',
   'deepseek',
   'qwen-coder',
+  'gpt-5-minimal',
   'qwen',
   'openai',
   'claude',

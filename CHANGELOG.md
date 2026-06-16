@@ -1,5 +1,21 @@
 # Changelog
 
+## [v1.3.2] — 2026-06-16
+
+### 🤖 模型适配增强
+
+- **GPT-5 模板**：新增 `gpt-5`（PR Benchmark 72.2分，Criticality Filtering）和 `gpt-5-minimal`（CI场景优化，62.7分）
+- **Haiku 4.5 Thinking 模板**：新增 `haiku-thinking`（58% win over Sonnet 4.5, 1/3价格），支持 Thinking budget 配置
+- **Thinking 参数支持**：`resolveTemplate()` 新增 `thinking` 字段，支持推理模型的 thinking budget 控制
+- **自动检测优先级更新**：GPT-5 > Haiku 4.5 Thinking > DeepSeek，聚焦代码审查质量最优选择
+- **新的 `fast` tier**：GPT-5 Minimal 引入快速模式，为 CI/CD 场景优化
+
+### 🐛 Bug 修复
+
+- 修复 `isIndexStale` flaky 测试（时序竞争条件，增加 50ms 延迟）
+
+---
+
 ## [v1.3.1] — 2026-06-15
 
 ### 🤖 Agentic Fix Loop (`--agentic`)
