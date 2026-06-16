@@ -20,6 +20,7 @@
 - [快速上手](#快速上手)
 - [命令详解](#命令详解)
   - [coderev review（核心审查）](#coderev-review核心审查)
+  - [coderev index（代码库索引）🆕](#coderev-index代码库索引)
   - [coderev fix（自动修复）](#coderev-fix自动修复)
   - [coderev hook（Git Hooks）](#coderev-hookgit-hooks)
   - [coderev stats（统计看板）](#coderev-stats统计看板)

@@ -198,14 +198,85 @@
 
 ---
 
-## 📊 2026-06-15 需求优先级 Top 5
+## 🔥 需求挖掘 — 2026-06-16（周二）
 
-> 基于今日竞品扫描（Qodo Series B $70M、2.0/2.1/2.2 三大版本、GPT-5 72.2 分、Haiku 4.5 Thinking 新范式）的评估
+> 今日竞品扫描：web_fetch 确认 Qodo 博客 3 篇关键文章——Series B $70M 详情、Haiku 4.5 Thinking 双基准完整数据、GPT-5 PR Benchmark；CodeRabbit/GitHub Changelog 无有效增量内容。
 
-| 优先级 | 需求 | 理由 | 建议版本 |
-|--------|------|------|---------|
-| 🔴 **P0** | 多 Agent 协调层（统一置信度校准、冲突检测、Recall 模式） | Qodo 2.0 F1=60.1% 领先 9%，核心差距在协调层而非 Agent 数量。coderev 虽有 3 Agent 但各说各话 | v1.4.0 |
-| 🔴 **P0** | Agentic 修复闭环（--agentic flag） | Qodo Command 已达 SWE-bench 71.2%，完整 plan→execute→verify→retry。这是从「发现问题」到「解决问题」的质变 | v1.3.1 |
-| 🟠 **P1** | PR 历史学习（降低噪声、识别回归） | Qodo 2.2 PR Knowledge 直接学团队审查模式，差异化极强。coderev 完全空白 | v1.4.0 |
-| 🟠 **P1** | 规则生命周期管理（版本化+分析） | Qodo 2.1 Rules System 把规则从静态配置变成第一等公民。coderev 规则仍是 JSON 文件 | v1.5.0 |
-| 🟡 **P2** | GPT-5 + 小模型 Thinking 策略适配 | GPT-5 PR Benchmark 72.2、Haiku 4.5 Thinking 58% win rate。模型能力跃升直接影响审查质量上限 | v1.3.1 |
+### 🆕 今日新发现
+
+1. **Qodo $70M Series B 已确认 + "Artificial Wisdom" 三支柱完整框架**：
+   - 领投方 Qumra Capital，累计融资 $120M
+   - 三支柱全部有独立文章确认：
+     - **Multi-Agent Fabric**（qodo-2-0-agentic-code-review）
+     - **Context Engine**（qodo-2-2-code-review-that-learns-from-your-pr-history-context）
+     - **Rules Lifecycle Management**（introducing-qodo-rule-system）
+   - 核心口号："Intelligence is enough for generation. Wisdom is a must for governance."
+   - 定位从"审查工具"升级为"代码治理系统记录"（system of record for enterprise）
+
+2. **Haiku 4.5 Thinking 双基准数据确认**：
+   - 标准模式：Haiku 4.5 55.19% win over Sonnet 4 (44.81%)，质量 6.55 vs 6.20
+   - Thinking 模式（4096 tokens）：Haiku 4.5 Thinking 58% win over Sonnet 4.5 Thinking (42%)，质量 7.29 vs 6.60
+   - 价格：Haiku 是 Sonnet 的 1/3
+   - 结论：小型推理模型在 PR 审查上可靠且有成本优势——对 coderev 开源定位是利好
+
+3. **GPT-5 PR Benchmark 数据确认**：
+   - Medium-budget 72.2 分（最高分），Low-budget 67.8，Minimal 62.7
+   - 核心特性：Criticality Filtering——识别"无问题"场景返回空，减少噪声
+   - Judge 模型：o3（基准测试评估）
+   - GPT-5 Minimal 为 IDE/快速 CI 场景优化——速度是新瓶颈
+
+4. **Qodo 已发布的具体文章链接确认**（补全知识图谱）：
+   - 2.0 Agentic Review、2.2 PR Knowledge System、2.1 Rules System、Jira Ticket Compliance、GPT-5 集成、Haiku Thinking Benchmark——全部为已发布的独立文章
+
+5. **v1.3.1 发布债务未解除**（连续第 2 天标记）：commit `4abc9ef`（Agentic fix loop + PR Summary/Walkthrough + RAG Indexer，+2601 行）仍待 npm publish/git tag/git push
+
+### 📊 竞品格局速览（2026-06-16 更新）
+
+| 玩家 | 核心能力 | 最新动作 | coderev 差距 |
+|------|---------|---------|-------------|
+| **Qodo** | PR Review + IDE + CLI 全平台，Multi-Agent Fabric，Context Engine，PR Knowledge System，Rules Lifecycle | Series B $70M（累计 $120M）；2.0 F1=60.1%；GPT-5 72.2 分；Haiku 4.5 Thinking 58% win；Jira 集成；"Artificial Wisdom" 战略 | 缺多 Agent 协调层、缺 PR 历史学习、缺规则生命周期、缺 Jira、缺双模式(recall/precision) |
+| **CodeRabbit** | PR 审查 Bot，噪声过滤，对话式 | VS Code 个人版免费，增量审查，Issue 联动 | 缺 PR 内对话、缺代码库验证（差异未显著扩大） |
+| **GitHub Copilot** | Chat 内置审查，生态绑定 | 深度 GitHub 集成、/tests 命令 | 缺生态深度绑定优势（差距稳定） |
+| **coderev** | CLI 审查 + 多 Agent + CI/CD + RAG 索引 + Agentic fix，轻量开源 | v1.3.1 开发完成待发布 | 见下方差距分析 |
+
+---
+
+## 📊 2026-06-16 需求优先级 Top 5
+
+> 连续 4 天扫描后形成稳定排序。v1.3.1 发布是阻塞性操作债务，其他为战略性功能差距。
+
+| 优先级 | 需求 | 理由 | 建议版本 | 连续标记 |
+|--------|------|------|---------|---------|
+| 🔴 **P0** | **发布 v1.3.1**（npm publish + git tag + git push） | 代码已就绪（+2601行），2 天未执行。阻塞价值交付和用户验证。越拖风险越大（代码腐化、merge conflict） | **立即** | 📅 Day 2 |
+| 🔴 **P0** | 多 Agent 协调层（置信度校准 + 冲突检测 + Recall/Precision 双模式） | Qodo 2.0 Multi-Agent Fabric F1=60.1% 领先 9%，核心差距在协调层而非 Agent 数量。3 Agent 各说各话，缺统一校准 | v1.4.0 | 📅 Day 4 |
+| 🟠 **P1** | GPT-5 + Haiku 4.5 Thinking 模型适配 + "Criticality Filtering" | GPT-5 72.2 分 + 关键性过滤；Haiku 4.5 Thinking 58% win @ 1/3 价格。直接影响审查质量/成本。是"小投入大回报"型 | v1.3.2 | 📅 Day 2 |
+| 🟠 **P1** | PR 历史学习系统（降低噪声 + 识别回归） | Qodo 2.2 PR Knowledge System 已独立发布，"代码库有记忆"成为差异化标配。避免重复建议、学习团队模式 | v1.4.0 | 📅 Day 2 |
+| 🟡 **P2** | 规则生命周期管理（版本化 + 采纳率分析） | Qodo 2.1 Rules System 已独立发布。规则从静态 JSON 升级为版本化实体。影响企业采纳和团队协作 | v1.5.0 | 📅 Day 2 |
+
+---
+
+## 🔮 战略洞察（2026-06-16 总结）
+
+> 连续 4 天需求挖掘后的趋势判断——已趋于稳定
+
+### 行业正在发生什么
+
+1. **从"代码生成"到"代码治理"的范式迁移**（确认度 95%）——Qodo $120M 融资 + "Artificial Wisdom" 战略是标志性事件。下半场的竞争不在"写代码"而在"管代码"
+2. **小模型 + 推理 = 大模型替代**（确认度 90%）——Haiku 4.5 Thinking 以 1/3 价格在 PR 审查上超越 Sonnet 4.5 Thinking。对开源工具是结构性利好：低运营成本 + 高质量
+3. **"代码库有记忆"成为新标配**（确认度 85%）——Context Engine / PR Knowledge System 从 nice-to-have 升级为差异化核心
+4. **速度成为新瓶颈**（确认度 80%）——GPT-5 Minimal (62.7 分) 的存在说明"够好+够快"是新的 PMF 维度。CI/CD 场景需要毫秒级反馈
+
+### coderev 的战略定位
+
+- ✅ **优势**：轻量开源 CLI + 多 Agent + Agentic fix loop + RAG 索引，技术栈完整，开源差异化明确
+- ⚠️ **紧迫差距**（按影响排序）：
+  1. **发布债务**（v1.3.1 未发）——纯执行问题，不解决则一切为零
+  2. **多 Agent 协调层**（质量）——Qodo 领先 9% 的根因
+  3. **模型适配**（成本/质量）——Haiku 4.5 Thinking 的机会窗口
+  4. **PR 历史学习**（差异化）——长期壁垒
+  5. **规则生命周期**（企业级）——变现路径
+- 🎯 **机会窗口**：
+  - 小模型推理趋势降低开源工具运营成本 → 差异化定价优势
+  - Qodo 闭源企业定位留下开发者社区/中小团队空白 → 开源补位
+  - 速度是 Qodo 尚未充分优化的维度 → coderev 可在 CI 速度上建立口碑
+- ⚡ **立即行动**：发布 v1.3.1 → 适配 Haiku 4.5 Thinking + GPT-5 Minimal → 多 Agent 协调层
