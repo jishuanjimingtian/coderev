@@ -4,6 +4,7 @@ const { recordReview } = require('./stats');
 const { getRuleDescriptions } = require('./rules');
 const { analyzeDiffContext, tagIssuesWithBlame } = require('./blame');
 const { loadIndex, buildReviewContext, isIndexStale } = require('./rag-indexer');
+const { calibrateConfidence, getCoordinationStats, formatCoordinationStats } = require('./agent-coordinator');
 
 // ── 多智能体并行审查 ──
 
@@ -58,23 +59,26 @@ const AGENT_ROLES = [
 ];
 
 /**
- * Merge results from multiple agents with confidence scoring.
- * Each issue gets a confidence score 0-100 as the agent's confidence
- * that this is a real, actionable issue.
+ * Merge results from multiple agents with cross-agent confidence calibration.
+ *
+ * Uses the Agent Coordinator (agent-coordinator.js) for:
+ * - Per-agent bias correction
+ * - Intersection detection & boosting
+ * - Conflict detection & penalization
+ * - Mode-specific filtering (recall/balanced/precision)
+ *
+ * @param {Array} agents - Raw agent results
+ * @param {string} diff - The git diff (for context)
+ * @param {string} projectHint - Project hint
+ * @param {'recall'|'balanced'|'precision'} [mode='balanced'] - Review mode
  */
-function mergeAgentResults(agents, diff, projectHint) {
+function mergeAgentResults(agents, diff, projectHint, mode = 'balanced') {
   const allIssues = [];
-  const seenMessages = new Set();
 
   for (const agentResult of agents) {
     if (!agentResult.success || !agentResult.issues) continue;
 
     for (const issue of agentResult.issues) {
-      // Deduplicate by message signature
-      const sig = `${issue.file || ''}:${issue.line || 0}:${issue.message.slice(0, 60)}`;
-      if (seenMessages.has(sig)) continue;
-      seenMessages.add(sig);
-
       // Assign confidence based on agent's confidence in this issue
       // If agent didn't provide a score, calculate based on issue type
       const confidence = issue.confidence ?? calculateConfidence(issue, agentResult.name);
@@ -87,14 +91,19 @@ function mergeAgentResults(agents, diff, projectHint) {
     }
   }
 
-  // Sort by confidence (highest first)
-  allIssues.sort((a, b) => (b.confidence || 0) - (a.confidence || 0));
+  // ── Use Agent Coordinator for cross-agent calibration ──
+  const calibratedIssues = calibrateConfidence(allIssues, mode);
+  const coordinationStats = getCoordinationStats(allIssues, calibratedIssues, mode);
 
-  // Filter: only keep confidence >= 60 (below threshold = false positive)
-  const filtered = allIssues.filter(i => i.confidence >= 60);
-  const filteredCount = allIssues.length - filtered.length;
+  // Map calibrated confidence back to the 'confidence' field for backward compat
+  const finalIssues = calibratedIssues.map(i => ({
+    ...i,
+    confidence: i.calibratedConfidence,
+  }));
 
-  return { issues: filtered, filteredCount };
+  const filteredCount = allIssues.length - finalIssues.length;
+
+  return { issues: finalIssues, filteredCount, coordinationStats };
 }
 
 /**
@@ -225,6 +234,7 @@ async function runParallelAgents(apiKey, config, prompts) {
  * @param {number} [options.minConfidence] - Minimum confidence threshold (default: 60)
  * @param {boolean} [options.blame] - Enable git blame context analysis
  * @param {boolean} [options.rag] - Enable RAG codebase context retrieval
+ * @param {string} [options.mode] - Review mode: 'recall', 'balanced', or 'precision' (default: 'balanced')
  * @returns {Promise<object>} Review result with issues, suggestions, score, etc.
  */
 async function reviewDiff(diff, config, options = {}) {
@@ -291,8 +301,13 @@ async function reviewDiff(diff, config, options = {}) {
     const prompts = buildAgentPrompts(diff, config, { ...options, projectHint, ragContext });
     const { results: agentResults, errors } = await runParallelAgents(apiKey, config, prompts);
 
-    // Merge and score issues
-    const { issues, filteredCount } = mergeAgentResults(agentResults, diff, projectHint);
+    // Determine review mode
+    const reviewMode = options.mode || config.reviewMode || 'balanced';
+
+    // Merge and score issues with cross-agent coordination
+    const { issues, filteredCount, coordinationStats } = mergeAgentResults(
+      agentResults, diff, projectHint, reviewMode
+    );
 
     // Build final summary
     const totalAgentIssues = agentResults.reduce((s, a) => s + (a.issues?.length || 0), 0);
@@ -312,6 +327,7 @@ async function reviewDiff(diff, config, options = {}) {
         minConfidence,
         errors: errors.length,
       },
+      _coordination: coordinationStats,
     };
 
     // Generate overall suggestions from top issues

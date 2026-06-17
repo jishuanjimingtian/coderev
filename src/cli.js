@@ -7,6 +7,7 @@ const pkg = require('../package.json');
 const { reviewDiff } = require('./reviewer');
 const { loadConfig, getApiKey } = require('./config');
 const { resolvePrRef, fetchPrDiff, postPrComment, resolveToken, fetchPrFiles, postInlineComments } = require('./github');
+const { formatCoordinationStats } = require('./agent-coordinator');
 
 program
   .name('coderev')
@@ -49,6 +50,7 @@ program
   .option('--agentic', 'Agentic fix mode: find issues → generate fixes → verify → retry')
   .option('--agentic-rounds <number>', 'Max fix-and-verify rounds (default: 3)', '3')
   .option('--agentic-auto-apply', 'Auto-apply verified fixes to working directory')
+  .option('--mode <mode>', 'Review mode: recall (catch-all), balanced (default), precision (high-signal only)')
   .action(async (options) => {
     try {
       const config = loadConfig(options.config);
@@ -190,6 +192,7 @@ program
         minConfidence: parseInt(options.minConfidence) || undefined,
         blame: options.blame || undefined,
         rag: options.rag || undefined,
+        mode: options.mode || undefined,
         repoRoot: options.repo || options.config ? path.dirname(options.config) : process.cwd(),
       });
 
@@ -1432,6 +1435,10 @@ function formatTerminal(result) {
   if (result._rag) {
     enLines.push('\n' + chalk.bold('RAG Context:'));
     enLines.push('  ' + chalk.magenta(`Indexed ${result._rag.indexedSymbols} symbols from codebase`));
+  }
+  if (result._coordination) {
+    enLines.push('\n' + chalk.bold('Agent Coordination:'));
+    enLines.push(formatCoordinationStats(result._coordination));
   }
   enLines.push('\n' + '━'.repeat(50));
 

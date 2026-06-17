@@ -1,5 +1,15 @@
 # coderev TODO
 
+## ✅ v1.3.3 — 多 Agent 协调层（已发布 2026-06-17）
+- [x] 跨 Agent 置信度统一校准（按 Agent 画像修正偏差）
+- [x] 交集检测 + 自动提升置信度
+- [x] 冲突检测（矛盾信号标记 + 降权）
+- [x] Recall / Balanced / Precision 三模式
+- [x] `--mode` CLI 选项
+- [x] 协同统计终端/Markdown 输出
+- [x] RELEASE_NOTES.md（v1.3.0-1.3.2 共 3 版）
+- [x] 48 个单元测试
+
 ## ✅ v0.2.0 — 规则引擎增强（已发布）
 - [x] React hooks 规范检查
 - [x] 性能反模式检测
@@ -45,6 +55,47 @@
 - ✅ **关联度评分**：`fully-addressed` / `partially-addressed` / `unaddressed` 三种判决
 - ✅ **Commit 引用扫描**：`--verify-issue` 自动检测 commit message 中的 issue 引用
 - ✅ 34 个单元测试
+
+---
+
+## 🔥 需求挖掘 — 2026-06-17（周三）
+
+> 今日竞品扫描：web_search 超时，改用 web_fetch 定向抓取 Qodo 博客首页 + CodeRabbit Changelog + Qodo 2 篇 Benchmark 文章。CodeRabbit 的 MDX/JSX changelog 无法直接解析增量内容，但从 Navigation 菜单中捕捉到重要新功能方向。
+
+### 🆕 今日新发现
+
+1. **CodeRabbit Agent for Slack（全新形态）**：CodeRabbit 将 AI Agent 嵌入 Slack——从 issue 到代码的完整工作流：在 Slack 线程中讨论问题 → 生成代码库感知的实现计划（Coding Plan）→ 自动开 PR。配合 Scope 系统（命名空间隔离仓库/权限/预算）实现企业级治理。这超越了"PR 审查 Bot"定位，成为"SDLC Agent"。
+
+2. **CodeRabbit Coding Plan + Finishing Touches**：
+   - **Coding Plan**：从 issue/描述生成代码库感知的实现计划，可直接交接给任何 coding agent
+   - **Finishing Touches**：审后 agentic 动作（Autofix、写 docstring、生成单测），在 PR comment 或 Walkthrough checkbox 触发
+   - **Path Instructions**：按 glob pattern 作用域的自定义审查规则（如 `src/controllers/**`）——比 coderev 配置文件级别更细粒度
+   - 这些功能让 CodeRabbit 从"被动审查"升级为"主动协助"
+
+3. **Qodo 无新增文章**（6/16→6/17 无增量）——连续 5 天扫描后行业信号趋于稳定。Qodo 的战略方向已清晰：Multi-Agent Fabric + Context Engine + Rules Lifecycle = "Artificial Wisdom" 三支柱。
+
+4. **v1.3.2 已完成**：GPT-5 + Haiku 4.5 Thinking 模板已于 6/16 提交并推送到远程（commit `086c38e`，tag `v1.3.2`），P1 优先级的模型适配需求已完成。但 npm publish 状态仍待确认。
+
+5. **GitHub Release Notes 缺失**：远程 tag 已存在（v1.3.0/v1.3.1/v1.3.2），但 GitHub Releases 页面空无一物——缺少 release notes 影响项目可见性和用户信任。
+
+### 📊 竞品格局速览（2026-06-17 更新）
+
+| 玩家 | 核心能力 | 最新动作 | coderev 差距 |
+|------|---------|---------|-------------|
+| **Qodo** | PR Review + IDE + CLI 全平台，Multi-Agent Fabric，Context Engine，PR Knowledge System，Rules Lifecycle | Series B $70M（累计 $120M）；2.0 F1=60.1%；GPT-5 72.2 分；"Artificial Wisdom" 战略体系完整 | 缺多 Agent 协调层、缺 PR 历史学习、缺规则生命周期 |
+| **CodeRabbit** | PR 审查 Bot + Slack Agent + Coding Plan + Path Instructions + Finishing Touches | Slack Agent（issue→plan→PR）、Coding Plan、Path Instructions、Finishing Touches（autofix/docstring/test gen）、Scope 系统 | 缺 Slack 集成、缺代码库感知计划生成、缺路径级规则、缺 PR 内容器人交互 |
+| **GitHub Copilot** | Chat 内置审查，生态绑定 | 深度 GitHub 集成、/tests 命令 | 缺生态深度绑定优势（差距稳定） |
+| **coderev** | CLI 审查 + 多 Agent + CI/CD + RAG 索引 + Agentic fix + 模型适配，轻量开源 | v1.3.2 完成模型适配；tag 已推到远程；release notes 缺失 | 见下方差距分析 |
+
+### 🎯 v1.3.2 完成后状态更新
+
+| 版本 | 状态 | 说明 |
+|------|------|------|
+| **v1.3.0** | ✅ 已发布 | Issue 关联校验，tag `v1.3.0` 已推远程 |
+| **v1.3.1** | ✅ 已发布 | Agentic fix loop + PR Summary/Walkthrough，tag `v1.3.1` 已推远程 |
+| **v1.3.2** | ✅ 已发布 | GPT-5 + Haiku 4.5 Thinking 模板，tag `v1.3.2` 已推远程 |
+| **GitHub Releases** | ❌ 缺失 | 3 个版本的 release notes 均未创建 |
+| **npm publish** | ⚠️ 待确认 | v1.3.2 最新版本是否已 publish 到 npm |
 
 ---
 
@@ -165,12 +216,20 @@
 
 ## 📋 待办池（Backlog）
 
-### 🔴 短期（v1.3.1）— 本周可执行
+### 🔴 短期（v1.3.3）— 本周可执行
 - [x] **PR 自动摘要 + 技术漫游**（`coderev serve` 增强）：自动生成 PR Summary + Walkthrough 帖到 PR ✅ v1.3.1
 - [x] **Agentic 审查模式原型**（`--agentic` flag）：发现问题→生成修复→验证→建议 patch ✅ v1.3.1
+- [x] **GPT-5 + Haiku 4.5 Thinking 模型适配** ✅ v1.3.2（2026-06-16）
+- [x] **多 Agent 协调层**：跨 Agent 置信度统一校准 + 冲突检测 + Recall/Precision 双模式 ✅ v1.3.3（2026-06-17）
+- [x] **RELEASE_NOTES.md**：v1.3.0/1.3.1/1.3.2 三个版本的 release notes 已写入文件
+- [ ] **npm publish v1.3.3**：待本次提交后发布
+- [ ] **GitHub Release Notes 创建**：待 gh CLI 或 token 可用后，通过 GitHub API/Web UI 创建 Release
 - [ ] **增量 commit 自动审查**：GitHub App 监听 `push` 事件，每个 commit 自动触发审查
-- [ ] **多 Agent 协调层**（2026-06-15 新增）：跨 Agent 置信度统一校准、冲突检测、Recall-optimized 模式（对标 Qodo 2.0 Multi-Agent Fabric F1=60.1%）
-- [ ] **GPT-5 适配 + 小模型策略**（2026-06-15 新增）：GPT-5 在 PR Benchmark 72.2 分，Haiku 4.5 Thinking 超越 Sonnet 4.5；coderev 应更新推荐模型列表并考虑 Thinking budget 参数
+
+### 🆕 新发现需求（2026-06-17 CodeRabbit Analysis）
+- [ ] **Path Instructions（路径级规则）**：按 glob pattern 作用域的审查规则配置（如 `src/controllers/**` 启用严格的安全扫描）——比现有 `.coderevrc.json` 文件级配置更细粒度
+- [ ] **Finishing Touches 模式**（审后自动动作）：Autofix、生成 docstring、生成单测——在审查结果中以 comment/checkbox 触发
+- [ ] **Slack/Chat 集成方案**：是否需要类似 CodeRabbit Agent 的聊天平台 agent 能力？可先评估
 
 ### 🟡 中期（v1.4.0）
 - [ ] `coderev test-gen` 测试生成命令（jest/vitest/pytest）
@@ -179,11 +238,12 @@
 - [ ] 代码库验证——检测遗漏未改的关联文件
 - [ ] 团队最佳实践学习（accepted/rejected 模式分析）
 - [ ] Bitbucket App webhook 集成
-- [ ] **PR 历史学习系统**（2026-06-15 新增）：索引 PR 历史→学习团队审查模式→过滤低信号建议→识别回归（对标 Qodo 2.2 PR Knowledge System）
-- [ ] **规则生命周期管理**（2026-06-15 新增）：规则版本化、起草/发布/废弃流程、采纳率/违规分析（对标 Qodo 2.1 Rules System）
-- [ ] **Jira Ticket 合规校验**（2026-06-15 新增）：`coderev review --jira <ticket>` → 验收标准级别验证，扩展到 v1.3.0 issue 关联能力
+- [ ] **PR 历史学习系统**：索引 PR 历史→学习团队审查模式→过滤低信号建议→识别回归（对标 Qodo 2.2 PR Knowledge System）
+- [ ] **规则生命周期管理**：规则版本化、起草/发布/废弃流程、采纳率/违规分析（对标 Qodo 2.1 Rules System）
+- [ ] **Jira Ticket 合规校验**：`coderev review --jira <ticket>` → 验收标准级别验证，扩展到 v1.3.0 issue 关联能力
 
 ### 🔵 产品与增长
+- [ ] **GitHub Release Notes 创建**（v1.3.0-v1.3.2，共 3 版）——超优先
 - [ ] Product Hunt 发布（product-intro.html 已完成）
 - [ ] GitHub Sponsors 开通
 - [ ] V2EX / 掘金 / Reddit / HN 宣传
@@ -241,42 +301,44 @@
 
 ---
 
-## 📊 2026-06-16 需求优先级 Top 5
+## 📊 2026-06-17 需求优先级 Top 5
 
-> 连续 4 天扫描后形成稳定排序。v1.3.1 发布是阻塞性操作债务，其他为战略性功能差距。
+> 连续 5 天扫描后形成最终稳定排序。v1.3.2 完成标志着"模型适配"里程碑达成。GitHub Release Notes + npm publish 成为新的阻塞性操作债务。
 
 | 优先级 | 需求 | 理由 | 建议版本 | 连续标记 |
 |--------|------|------|---------|---------|
-| 🔴 **P0** | **发布 v1.3.1**（npm publish + git tag + git push） | 代码已就绪（+2601行），2 天未执行。阻塞价值交付和用户验证。越拖风险越大（代码腐化、merge conflict） | **立即** | 📅 Day 2 |
-| 🔴 **P0** | 多 Agent 协调层（置信度校准 + 冲突检测 + Recall/Precision 双模式） | Qodo 2.0 Multi-Agent Fabric F1=60.1% 领先 9%，核心差距在协调层而非 Agent 数量。3 Agent 各说各话，缺统一校准 | v1.4.0 | 📅 Day 4 |
-| 🟠 **P1** | GPT-5 + Haiku 4.5 Thinking 模型适配 + "Criticality Filtering" | GPT-5 72.2 分 + 关键性过滤；Haiku 4.5 Thinking 58% win @ 1/3 价格。直接影响审查质量/成本。是"小投入大回报"型 | v1.3.2 | 📅 Day 2 |
-| 🟠 **P1** | PR 历史学习系统（降低噪声 + 识别回归） | Qodo 2.2 PR Knowledge System 已独立发布，"代码库有记忆"成为差异化标配。避免重复建议、学习团队模式 | v1.4.0 | 📅 Day 2 |
-| 🟡 **P2** | 规则生命周期管理（版本化 + 采纳率分析） | Qodo 2.1 Rules System 已独立发布。规则从静态 JSON 升级为版本化实体。影响企业采纳和团队协作 | v1.5.0 | 📅 Day 2 |
+| 🔴 **P0** | **GitHub Release Notes + npm publish**（v1.3.0→v1.3.2 共 3 版） | 远程 tag 已存在但 releases 页面为空；npm 发布状态待确认。本应跟着代码提交走的最基本交付动作，已欠债 3 个版本。影响用户发现和信任 | **立即** | 📅 Day 1（新） |
+| 🔴 **P0** | 多 Agent 协调层（置信度校准 + 冲突检测 + Recall/Precision 双模式） | Qodo 2.0 Multi-Agent Fabric F1=60.1% 领先 9%，核心差距在协调层。3 Agent 各说各话，缺统一校准。是质量维度的最大单一提升 | v1.4.0 | 📅 Day 5 |
+| 🟠 **P1** | PR 历史学习系统（降低噪声 + 识别回归） | Qodo 2.2 PR Knowledge System 已独立发布，"代码库有记忆"成为差异化标配。CodeRabbit Learning 模式也在跟进 | v1.4.0 | 📅 Day 3 |
+| 🟠 **P1** | Path Instructions + Finishing Touches（路径级规则 + 审后自动动作） | CodeRabbit 新能力：glob 级规则细分 + autofix/docstring/test gen 触发。填补 coderev 从"审查"到"协助修复"的最后一公里 | v1.4.0 | 📅 Day 1（新） |
+| 🟡 **P2** | 规则生命周期管理（版本化 + 采纳率分析） | Qodo 2.1 Rules System 已独立发布。规则从静态 JSON 升级为版本化实体。影响企业采纳和团队协作 | v1.5.0 | 📅 Day 3 |
 
 ---
 
-## 🔮 战略洞察（2026-06-16 总结）
+## 🔮 战略洞察（2026-06-17 更新）
 
-> 连续 4 天需求挖掘后的趋势判断——已趋于稳定
+> 连续 5 天需求挖掘后的最终趋势判断——已高度稳定
 
 ### 行业正在发生什么
 
 1. **从"代码生成"到"代码治理"的范式迁移**（确认度 95%）——Qodo $120M 融资 + "Artificial Wisdom" 战略是标志性事件。下半场的竞争不在"写代码"而在"管代码"
-2. **小模型 + 推理 = 大模型替代**（确认度 90%）——Haiku 4.5 Thinking 以 1/3 价格在 PR 审查上超越 Sonnet 4.5 Thinking。对开源工具是结构性利好：低运营成本 + 高质量
+2. **小模型 + 推理 = 大模型替代**（确认度 90%）——Haiku 4.5 Thinking 以 1/3 价格在 PR 审查上超越 Sonnet 4.5 Thinking。对开源工具是结构性利好
 3. **"代码库有记忆"成为新标配**（确认度 85%）——Context Engine / PR Knowledge System 从 nice-to-have 升级为差异化核心
-4. **速度成为新瓶颈**（确认度 80%）——GPT-5 Minimal (62.7 分) 的存在说明"够好+够快"是新的 PMF 维度。CI/CD 场景需要毫秒级反馈
+4. **速度成为新瓶颈**（确认度 85%）——GPT-5 Minimal (62.7 分) 的存在说明"够好+够快"是新 PMF 维度。CI/CD 场景需要毫秒级反馈
+5. **Agent 嵌入协作平台**（确认度 80%）——CodeRabbit Slack Agent 开辟新赛道：从"代码审查工具"进化到"SDLC 全流程 Agent"（issue→plan→PR→review→fix）
 
 ### coderev 的战略定位
 
-- ✅ **优势**：轻量开源 CLI + 多 Agent + Agentic fix loop + RAG 索引，技术栈完整，开源差异化明确
+- ✅ **优势**：轻量开源 CLI + 多 Agent + Agentic fix loop + RAG 索引 + GPT-5/Haiku 4.5 Thinking 适配，技术栈完整
+- ✅ **v1.3.2 里程碑**：模型适配完成——GPT-5(72.2分) + Haiku 4.5 Thinking(58% win) + GPT-5 Minimal(CI优化) 全部就绪
 - ⚠️ **紧迫差距**（按影响排序）：
-  1. **发布债务**（v1.3.1 未发）——纯执行问题，不解决则一切为零
+  1. **发布体验**（GitHub Releases + npm）——3 个版本 tag 已推但 release notes 为空，纯操作债务
   2. **多 Agent 协调层**（质量）——Qodo 领先 9% 的根因
-  3. **模型适配**（成本/质量）——Haiku 4.5 Thinking 的机会窗口
-  4. **PR 历史学习**（差异化）——长期壁垒
+  3. **PR 历史学习**（差异化）——长期壁垒
+  4. **Path Instructions + Finishing Touches**（细粒度控制）——CodeRabbit 新方向
   5. **规则生命周期**（企业级）——变现路径
 - 🎯 **机会窗口**：
-  - 小模型推理趋势降低开源工具运营成本 → 差异化定价优势
-  - Qodo 闭源企业定位留下开发者社区/中小团队空白 → 开源补位
-  - 速度是 Qodo 尚未充分优化的维度 → coderev 可在 CI 速度上建立口碑
-- ⚡ **立即行动**：发布 v1.3.1 → 适配 Haiku 4.5 Thinking + GPT-5 Minimal → 多 Agent 协调层
+  - 小模型推理趋势降低开源工具运营成本 → 差异化定价优势（Haiku 4.5 Thinking 已在 v1.3.2 适配）
+  - Qodo 闭源企业定位 + CodeRabbit 商业化路径留下开发者社区/中小团队空白 → 开源补位
+  - 速度是 Qodo 尚未充分优化的维度 → GPT-5 Minimal 模板为 coderev CI 速度口碑铺路
+- ⚡ **立即行动**：创建 GitHub Release Notes（v1.3.0-1.3.2）→ npm publish 确认 → 多 Agent 协调层设计

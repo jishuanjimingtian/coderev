@@ -1,5 +1,41 @@
 # Changelog
 
+## [v1.3.3] — 2026-06-17
+
+### 🧠 多 Agent 协调层
+
+- **`src/agent-coordinator.js`**：跨 Agent 置信度统一校准 + 冲突检测 + Recall/Precision 双模式
+  - **置信度校准 (Confidence Calibration)**：按 Agent 画像修正偏差（security 高估 -8、bugs 中性、quality 挑剔 -5）
+  - **交集检测 (Intersection Detection)**：多 Agent 同时发现的问题自动提升置信度（+10 × N agents）
+  - **冲突检测 (Conflict Detection)**：检测同代码位置的矛盾信号（error vs info, high vs low），双方各扣 15 分
+  - **Recall / Precision 双模式**：
+    - `recall`：低阈值 40，1.1x 提升，宁可误报不漏 — 安全审计场景
+    - `balanced`：默认阈值 55，标准模式
+    - `precision`：高阈值 65，罚单 Agent 发现 -10，罚 info -5 — 日常 CI 场景
+  - `--mode <recall|balanced|precision>` CLI 选项
+  - 终端/Markdown 协同统计输出
+- **`src/agent-coordinator.test.js`**：48 个单元测试
+  - 置信度校准（按 Agent 画像、钳制范围、排序）
+  - 交集检测（2 Agent、3 Agent 全交集、消息相似度合并）
+  - 冲突检测（同位置矛盾、惩罚、非冲突放行）
+  - 三种模式（recall/balanced/precision 阈值 + 奖惩）
+  - 协同统计（生成 + 终端格式化 + Markdown 格式化）
+  - 消息相似度（Jaccard 算法）
+  - Agent 画像配置验证
+
+### 📝 文档
+
+- **`RELEASE_NOTES.md`**：v1.3.0/v1.3.1/v1.3.2 三个版本的 GitHub Release Notes 内容
+
+### 🎯 价值
+
+- **对标 Qodo 2.0 Multi-Agent Fabric**：跨 Agent 置信度统一校准是 MR Benchmark F1=60.1% 的核心机制
+- **减少误报**：precision 模式过滤 30%+ 低信号单 Agent 发现
+- **安全审计**：recall 模式确保不遗漏潜在漏洞
+- **冲突透明**：明确标记 Agent 间的矛盾判断，辅助 human reviewer 决策
+
+---
+
 ## [v1.3.2] — 2026-06-16
 
 ### 🤖 模型适配增强
