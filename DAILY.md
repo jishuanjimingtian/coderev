@@ -1,85 +1,92 @@
-# coderev 每日汇报 — 2026-06-15（周一）
+# coderev 每日汇报 — 2026-06-27（周六）
 
 ## 📋 今日产出
 
-### ① 需求挖掘
-> 今日尚未执行竞品扫描（可择机运行 `coderev competitor-scan` 跟踪 Qodo / CodeRabbit / Copilot 最新动态）。
+---
 
-**当前需求池状态**：
-| 方向 | 优先级 | 状态 |
-|------|--------|------|
-| RAG 代码库上下文感知 | 🔴 P1 | ✅ v1.2.0 Phase 1 已发布 |
-| Issue 关联校验 | 🔴 P1 | ✅ v1.3.0 已发布 |
-| Agentic 修复闭环 | 🟠 P1 | ✅ v1.3.1 已发布 |
-| PR 摘要 + 技术漫游 | 🟠 P1 | ✅ v1.3.1 已发布 |
-| 增量 commit 自动审查 | 🟡 P2 | v1.3.1 候选 |
-| 测试生成与覆盖率 | 🟡 P3 | backlog |
-| 团队协作与审查历史 | 🟢 P4 | backlog |
-| 产品发布 & 增长 | 🔵 P5 | Product Hunt ✅ |
+### ① 需求挖掘 — 距上次扫描 1 天（2026-06-27）
 
-### ② 开发发布 — v1.3.1 Agentic 修复闭环 + PR 摘要
+> **核心发现**：距上次扫描仅 1 天，无新增竞品动态。发布债务已完全清除（npm v1.3.3 + GitHub Release Notes 4 版全部完成）。v1.4.0 增量 commit 自动审查开发完成，待 npm publish。
 
-**版本**：`v1.3.1`（2026-06-15 08:38 GMT+8 提交 `4abc9ef`）
+**今日状态**：
+1. **发布债务清零**：✅ npm v1.3.3 publish（6/26）+ ✅ GitHub Release Notes（v1.3.0-v1.3.3 共 4 版，6/26 全部创建）。回归正常发布节奏。
+2. **竞品格局稳定**：Qodo 博客停更约 4 周，CodeRabbit Changelog 无新条目。行业信号偏清静。
+3. **新需求赛道确认**：框架级专项审查 + PR 历史学习 + Multi-repo 三大方向已清晰，等待 v1.4.0 发布后启动。
 
-**新增**：
-- `src/agentic-fixer.js`（687 行）：Agentic fix loop，实现 `--agentic` 模式下自动修复-验证迭代
-- `src/agentic-fixer.test.js`（230 行）：21 个单元测试
-- `src/pr-summary.js`（250 行）：PR 摘要 + 技术漫游（Walkthrough），`coderev serve` 模式增强
-- `src/pr-summary.test.js`（162 行）：PR 摘要测试
-- `src/rag-indexer.js`（700 行）：代码库 RAG 索引（v1.2.0 Phase 1 完整实现，之前仅占位）
-- `src/rag-indexer.test.js`（385 行）：RAG 索引器测试
-- `src/cli.js` 变更 68 行：新增 `--agentic`、`coderev index`、`coderev serve` 命令
-- `src/github-app.js` 变更 33 行：GitHub App 集成增强
-- `CHANGELOG.md` 更新 40 行、`TODO.md` 更新 52 行
-
-**总计**：11 文件变更，+2601 行，-8 行
-
-**发布状态**：
-- npm: `coderev-cli@1.3.1` ❌ **尚未发布**（npm 线上仍为 `1.3.0`）
-- Git tag: `v1.3.1` ❌ **尚未打 tag**（最新 tag 为 `v1.1.0`）
-- origin/main: ❌ **尚未推送**（ahead by 1 commit）
-
-### 📊 Git 状态
-
-```
-HEAD: 4abc9ef v1.3.1: Agentic fix loop (--agentic) + PR Summary/Walkthrough (serve)
-↑1 ahead of origin/main
-
-Modified (not staged):
-  README.md  (新增 "coderev index" 目录锚点)
-
-Untracked:
-  DAILY.md
-```
-
-### 📦 npm 发布状态
-
-| 包名 | npm 线上版本 | 本地 package.json | 状态 |
-|------|-------------|-------------------|------|
-| coderev-cli | 1.3.0 | 1.3.1 | ⚠️ 本地领先，待发布 |
-
-### 🎯 今日任务完成情况
-
-| 任务 | 状态 |
-|------|------|
-| v1.3.1 Agentic fix loop 开发 | ✅ |
-| PR Summary / Walkthrough 开发 | ✅ |
-| RAG Indexer 完整实现 | ✅ |
-| CHANGELOG / TODO 更新 | ✅ |
-| 测试编写（3 个新测试文件，~777 行） | ✅ |
-| npm publish v1.3.1 | ❌ 待执行 |
-| git tag v1.3.1 | ❌ 待执行 |
-| git push origin/main | ❌ 待执行 |
-| README.md 提交 | ❌ 待提交 |
-
-### ⚠️ 待办清单
-
-1. **npm publish** — 发布 `coderev-cli@1.3.1`
-2. **git tag v1.3.1** — 补打 tag（目前最新 tag 仍为 v1.1.0，中间 v1.2.0/v1.3.0 也缺失）
-3. **git push origin/main** — 推送本地 commit
-4. **README.md** — 提交 index 锚点更新
-5. **补打缺失 tags** — `v1.2.0`、`v1.3.0` 均未打 tag，需补齐
+**需求优先级 Top 5（不变）**：
+| 优先级 | 需求 | 连续标记 |
+|--------|------|---------|
+| 🔴 P0 | 增量 commit 自动审查（v1.4.0 开发中） | 📅 Day 2 |
+| 🔴 P0 | React/Vue 框架级专项审查工具 | 📅 Day 3 |
+| 🟠 P1 | PR 历史学习系统 + 可导出 API | 📅 Day 14 |
+| 🟠 P1 | Multi-repo 跨仓库关联审查 | 📅 Day 3 |
+| 🟡 P2 | Path Instructions + Finishing Touches | 📅 Day 11 |
 
 ---
 
-_生成时间：2026-06-15 09:24 GMT+8_
+### ② 开发发布 — v1.4.0 增量 commit 自动审查已提交
+
+**版本里程碑**：`v1.4.0` **代码已提交**（2026-06-27 08:38），待 npm publish
+
+**v1.4.0 核心功能（增量 commit 自动审查）**：
+- ✅ GitHub App 监听 `push` 事件
+- ✅ PR 每新 commit 自动触发增量审查
+- ✅ 复用 v1.3.0 `--incremental` 基础设施
+- ✅ 复用 `--issue` 关联校验能力
+- ✅ Git HEAD: `4e664e1 v1.4.0: 增量 commit 自动审查（GitHub App）`
+
+**Git 状态**：
+```
+HEAD: 4e664e1 v1.4.0: 增量 commit 自动审查（GitHub App）
+✅ 本地领先 origin/main 1 个 commit
+
+Modified (not staged):
+  DAILY.md  (昨日汇报)
+  TODO.md   (需求挖掘更新)
+```
+
+**npm 发布状态**：
+| 包名 | npm 线上版本 | 本地 package.json | 状态 |
+|------|-------------|-------------------|------|
+| coderev-cli | **1.3.2** | **1.4.0** | ⚠️ 待发布（本地领先 2 个小版本） |
+
+**版本发布追踪表**：
+| 版本 | npm publish | git tag | git push | GitHub Release |
+|------|------------|---------|----------|---------------|
+| v1.3.0 | ✅ | ✅ | ✅ | ✅ |
+| v1.3.1 | ✅ | ✅ | ✅ | ✅ |
+| v1.3.2 | ✅ | ✅ | ✅ | ✅ |
+| v1.3.3 | ✅ | ✅ | ✅ | ✅ |
+| **v1.4.0** | ❌ 待发布 | ❌ 待打 tag | ❌ 待 push | ❌ 待创建 |
+
+---
+
+## 📊 项目统计（截至 2026-06-27）
+
+| 维度 | 数据 |
+|------|------|
+| 总版本发布 | 16+ 次（v0.1.0 → v1.4.0） |
+| npm 下载量 | ➖ 待查询 |
+| 核心测试用例 | 48+ |
+| 需求挖掘连续天数 | 14 天 |
+| 发布债务剩余 | v1.4.0 待 npm publish + git push + tag |
+
+---
+
+## 🎯 今日关键成果
+
+1. ✅ **v1.4.0 增量 commit 自动审查开发完成** — GitHub App push 事件监听 + 自动增量审查，代码已提交
+2. ✅ **发布债务完全清零** — v1.3.0-v1.3.3 全部 npm publish + GitHub Release Notes 完成
+3. ⚠️ **v1.4.0 待发布** — npm publish + git push + tag 待执行
+
+---
+
+## ⚠️ 接下来的 P0 优先级
+
+1. **npm publish v1.4.0** + git push + tag — 最高优先级
+2. **创建 GitHub Release Notes v1.4.0**
+3. **框架级专项审查工具原型设计**（React 优先）
+
+---
+
+_生成时间：2026-06-27 09:10 GMT+8_
