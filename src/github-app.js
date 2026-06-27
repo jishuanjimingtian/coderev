@@ -272,7 +272,6 @@ async function handlePREvent(event, payload, appConfig) {
       await postInlineReview(token, ref, pr, result);
     } else {
       // Default: post a PR comment summary
-      const { postPrComment } = require('./github');
       let md = formatAppMarkdown(result, ref);
 
       // Prepend PR Summary if generated
@@ -308,6 +307,309 @@ async function handlePREvent(event, payload, appConfig) {
 
   return { handled: true, score: result.score, issues: issueCount };
 }
+
+/**
+ * Handle push events — incremental review for new commits.
+ */
+async function handlePushEvent(event, payload, appConfig) {
+  const owner = payload.repository?.owner?.login;
+  const repo = payload.repository?.name;
+  const before = payload.before;
+  const after = payload.after;
+  const ref = payload.ref;
+  const installationId = payload.installation?.id;
+
+  // Skip if not a branch push, or before is all zeros (new branch)
+  if (!ref?.startsWith('refs/heads/') || !before || before === '0000000000000000000000000000000000000000') {
+    return { handled: false, reason: 'not a branch push or new branch creation' };
+  }
+
+  // Skip force pushes
+  if (payload.forced) {
+    return { handled: false, reason: 'force push skipped' };
+  }
+
+  if (!installationId) {
+    return { handled: false, reason: 'no installation id' };
+  }
+
+  console.error(chalk.blue(`[${owner}/${repo}@${after.slice(0, 8)}] Processing push (${before.slice(0, 8)} → ${after.slice(0, 8)})...`));
+
+  // 1. Get installation token
+  const jwt = generateAppJWT(appConfig.appId, appConfig.privateKey);
+  let instToken;
+  try {
+    instToken = await getInstallationToken(jwt.token, installationId);
+  } catch (err) {
+    console.error(chalk.red(`[${owner}/${repo}@${after.slice(0, 8)}] Failed to get installation token: ${err.message}`));
+    return { handled: false, error: err.message };
+  }
+
+  const token = instToken.token;
+
+  // 2. Fetch commit diff (before → after)
+  let diff;
+  try {
+    diff = await fetchCommitDiff({ owner, repo, base: before, head: after }, token);
+  } catch (err) {
+    console.error(chalk.red(`[${owner}/${repo}@${after.slice(0, 8)}] Failed to fetch commit diff: ${err.message}`));
+    await setCommitStatus(token, { owner, repo }, after, 'error', 'Failed to fetch commit diff');
+    return { handled: false, error: err.message };
+  }
+
+  // Skip if no diff
+  if (!diff || diff.length < 10) {
+    console.error(chalk.gray(`[${owner}/${repo}@${after.slice(0, 8)}] No meaningful diff, skipping`));
+    return { handled: false, reason: 'empty diff' };
+  }
+
+  // 3. Parse incremental diff (only added/changed lines)
+  const { parseIncrementalDiff } = require('./fixer');
+  const incrementalDiff = parseIncrementalDiff(diff);
+
+  // Skip if no incremental changes
+  if (!incrementalDiff || incrementalDiff.length < 10) {
+    console.error(chalk.gray(`[${owner}/${repo}@${after.slice(0, 8)}] No incremental changes, skipping`));
+    return { handled: false, reason: 'no incremental changes' };
+  }
+
+  // 4. Set commit status to pending
+  try {
+    await setCommitStatus(token, { owner, repo }, after, 'pending', 'coderev is reviewing incrementally...');
+  } catch {}
+
+  // 5. Run incremental review
+  let result;
+  try {
+    result = await reviewDiff(incrementalDiff, null, {
+      noCache: true,
+      minConfidence: appConfig.minConfidence,
+      incremental: true,
+    });
+  } catch (err) {
+    console.error(chalk.red(`[${owner}/${repo}@${after.slice(0, 8)}] Review failed: ${err.message}`));
+    await setCommitStatus(token, { owner, repo }, after, 'error', 'Review failed: ' + err.message.slice(0, 100));
+    return { handled: false, error: err.message };
+  }
+
+  const issueCount = (result.issues || []).length;
+
+  console.error(chalk.cyan(`[${owner}/${repo}@${after.slice(0, 8)}] Incremental review complete: ${result.score}/100, ${issueCount} issues`));
+
+  // 6. Set final commit status
+  try {
+    const state = issueCount === 0 ? 'success' : (result.score >= 60 ? 'neutral' : 'failure');
+    const description = issueCount === 0
+      ? '✅ coderev: no issues found (incremental)'
+      : `⚠ coderev: ${issueCount} issues (score: ${result.score}/100) [incremental]`;
+    await setCommitStatus(token, { owner, repo }, after, state, description);
+  } catch {}
+
+  // 7. If this push is to an open PR branch, also post a PR comment
+  if (payload.commits && payload.commits.length > 0) {
+    try {
+      // Find PRs associated with this branch
+      const branchName = ref.replace('refs/heads/', '');
+      const prs = await findOpenPRsForBranch(token, { owner, repo }, branchName);
+
+      for (const pr of prs) {
+        // Post a comment to the PR with incremental review results
+        if (issueCount > 0) {
+          const commentMd = formatIncrementalPRMarkdown(result, { owner, repo, pr: pr.number }, after, branchName);
+          await postPrComment({ owner, repo, pr: pr.number }, commentMd, token);
+          console.error(chalk.green(`[${owner}/${repo}#${pr.number}] Incremental comment posted`));
+        }
+      }
+    } catch (err) {
+      console.error(chalk.yellow(`[${owner}/${repo}@${after.slice(0, 8)}] Failed to find/comment on PR: ${err.message}`));
+    }
+  }
+
+  return { handled: true, score: result.score, issues: issueCount, incremental: true };
+}
+
+/**
+ * Fetch a commit diff between two commits.
+ */
+function fetchCommitDiff(ref, token) {
+  const { owner, repo, base, head } = ref;
+  return new Promise((resolve, reject) => {
+    const options = {
+      hostname: 'api.github.com',
+      path: `/repos/${owner}/${repo}/compare/${base}...${head}`,
+      headers: {
+        'User-Agent': 'coderev-github-app',
+        'Accept': 'application/vnd.github.v3.diff',
+        'Authorization': `Bearer ${token}`,
+      },
+    };
+
+    https.get(options, (res) => {
+      if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+        https.get(res.headers.location, { headers: options.headers }, (res2) => {
+          let body = '';
+          res2.on('data', (chunk) => (body += chunk));
+          res2.on('end', () => {
+            if (res2.statusCode === 200) resolve(body);
+            else reject(new Error(`GitHub API returned status ${res2.statusCode}: ${body.slice(0, 200)}`));
+          });
+        }).on('error', reject);
+        return;
+      }
+
+      let body = '';
+      res.on('data', (chunk) => (body += chunk));
+      res.on('end', () => {
+        if (res.statusCode === 200) {
+          resolve(body);
+        } else {
+          reject(new Error(`GitHub API returned status ${res.statusCode}: ${body.slice(0, 200)}`));
+        }
+      });
+    }).on('error', reject);
+  });
+}
+
+/**
+ * Find open PRs for a given branch.
+ */
+function findOpenPRsForBranch(token, ref, branchName) {
+  const { owner, repo } = ref;
+  return new Promise((resolve, reject) => {
+    const options = {
+      hostname: 'api.github.com',
+      path: `/repos/${owner}/${repo}/pulls?state=open&head=${owner}:${encodeURIComponent(branchName)}`,
+      headers: {
+        'User-Agent': 'coderev-github-app',
+        'Accept': 'application/vnd.github.v3+json',
+        'Authorization': `Bearer ${token}`,
+      },
+    };
+
+    https.get(options, (res) => {
+      let body = '';
+      res.on('data', (chunk) => (body += chunk));
+      res.on('end', () => {
+        if (res.statusCode === 200) {
+          try {
+            const prs = JSON.parse(body);
+            resolve(prs.map(p => ({ number: p.number, title: p.title, id: p.id })));
+          } catch {
+            reject(new Error('Failed to parse PR list'));
+          }
+        } else {
+          reject(new Error(`GitHub API error ${res.statusCode}: ${body.slice(0, 200)}`));
+        }
+      });
+    }).on('error', reject);
+  });
+}
+
+/**
+ * Format incremental PR comment markdown.
+ */
+function formatIncrementalPRMarkdown(result, ref, commitSha, branchName) {
+  const TAG = `<!-- coderev:incremental:${ref.owner}/${ref.repo}#${ref.pr}@${commitSha} -->`;
+  let md = `## 📋 coderev Incremental Review
+
+${TAG}
+`;
+  md += `**Commit:** \`${commitSha.slice(0, 8)}\` (${branchName})
+`;
+  md += `**Score:** ${result.score}/100
+`;
+  md += `**Issues found:** ${(result.issues || []).length}
+
+`;
+
+  if (result.summary) md += `${result.summary}
+
+`;
+
+  if (result.issues && result.issues.length > 0) {
+    md += '### Issues (Incremental)
+
+';
+    for (const issue of result.issues.slice(0, 10)) {
+      const icons = { error: '🔴', warning: '🟡', info: '🔵' };
+      md += `- ${icons[issue.type] || '⚪'} **${issue.type.toUpperCase()}**`;
+      if (issue.severity) md += ` [${issue.severity}]`;
+      md += `: ${issue.message}`;
+      if (issue.file) md += ` (\`${issue.file}\``;
+      if (issue.line) md += `:${issue.line}`;
+      if (issue.file) md += `)`;
+      md += '
+';
+      if (issue.suggestion) md += `  - 💡 ${issue.suggestion}
+`;
+    }
+    if (result.issues.length > 10) {
+      md += `
+  ... and ${result.issues.length - 10} more issues
+`;
+    }
+  }
+
+  const scoreVal = result.score;
+  const emoji = scoreVal >= 80 ? '🟢' : scoreVal >= 50 ? '🟡' : '🔴';
+  md += `
+${emoji} **Incremental Score:** ${result.score}/100
+`;
+
+  return md;
+}
+
+/**
+ * Set a commit status on GitHub (ref without pr property).
+ */
+async function setCommitStatus(token, ref, sha, state, description) {
+  const body = {
+    state, // 'pending', 'success', 'failure', 'error', 'neutral'
+    description: description || 'coderev review',
+    context: 'coderev/review',
+    target_url: ref.pr ? `https://github.com/${ref.owner}/${ref.repo}/pull/${ref.pr}` : `https://github.com/${ref.owner}/${ref.repo}`,
+  };
+  return githubApi(`/repos/${ref.owner}/${ref.repo}/statuses/${sha}`, token, 'POST', body);
+}
+
+/**
+ * Post a PR comment on GitHub.
+ */
+function postPrComment(ref, body, token) {
+  const { owner, repo, pr } = ref;
+  return new Promise((resolve, reject) => {
+    const postData = JSON.stringify({ body });
+
+    const options = {
+      hostname: 'api.github.com',
+      path: `/repos/${owner}/${repo}/issues/${pr}/comments`,
+      method: 'POST',
+      headers: {
+        'User-Agent': 'coderev-github-app',
+        'Accept': 'application/vnd.github.v3+json',
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(postData),
+      },
+    };
+
+    const req = https.request(options, (res) => {
+      let rb = '';
+      res.on('data', (c) => (rb += c));
+      res.on('end', () => {
+        if (res.statusCode === 201) {
+          try { resolve(JSON.parse(rb)); } catch { resolve(rb); }
+        } else {
+          reject(new Error(`Failed to post comment (${res.statusCode}): ${rb.slice(0, 300)}`));
+        }
+      });
+    });
+    req.on('error', reject);
+    req.write(postData);
+    req.end();
+  });
+}
+
 
 /**
  * Set a commit status on GitHub.
@@ -377,7 +679,7 @@ function startServer(appConfig) {
     // Health check
     if (req.url === '/health') {
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ status: 'ok', version: '1.0.0', uptime: process.uptime() }));
+      res.end(JSON.stringify({ status: 'ok', version: require('../package.json').version, uptime: process.uptime() }));
       return;
     }
 
@@ -421,6 +723,13 @@ function startServer(appConfig) {
       try {
         const result = await handlePREvent(event, payload, appConfig);
         console.error(chalk.green(`✔ ${payload.repository?.full_name || '?'}#${payload.pull_request?.number || '?'}: ${result.handled ? 'Reviewed' : 'Skipped (' + result.reason + ')'}`));
+      } catch (err) {
+        console.error(chalk.red(`✖ Webhook handler error: ${err.message}`));
+      }
+    } else if (event === 'push') {
+      try {
+        const result = await handlePushEvent(event, payload, appConfig);
+        console.error(chalk.green(`✔ ${payload.repository?.full_name || '?'}@${payload.after?.slice(0, 8) || '?'}: ${result.handled ? 'Reviewed' : 'Skipped (' + result.reason + ')'}`));
       } catch (err) {
         console.error(chalk.red(`✖ Webhook handler error: ${err.message}`));
       }
@@ -530,7 +839,8 @@ async function serveCommand(options) {
   return startServer(appConfig);
 }
 
-module.exports = { serveCommand, handlePREvent, generateAppJWT, getInstallationToken, formatAppMarkdown };
+module.exports = { serveCommand, handlePREvent, handlePushEvent, generateAppJWT, getInstallationToken, formatAppMarkdown, formatIncrementalPRMarkdown, fetchCommitDiff, findOpenPRsForBranch };
+
 
 // Required for inline require('https') in functions
 const https = require('https');

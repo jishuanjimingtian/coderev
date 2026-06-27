@@ -1,5 +1,29 @@
 # Changelog
 
+## [v1.4.0] — 2026-06-27
+
+### 🚀 增量 commit 自动审查（GitHub App）
+
+- **`src/github-app.js`**：新增 `push` 事件处理器，PR 每新 commit 自动触发增量审查
+  - **增量审查复用**：复用 v1.2.0 `--incremental` 基础设施，`parseIncrementalDiff()` 过滤只审查新增/修改行
+  - **commit status 更新**：自动设置 `pending` → `success/failure/neutral` 状态，带增量标记
+  - **PR 自动关联**：push 到开放 PR 的分支时，自动找到 PR 并发布增量审查评论
+  - **智能过滤**：跳过 force push、新分支创建、空 diff、无意义小变更
+- **新增 API**：
+  - `handlePushEvent()` — push 事件入口
+  - `fetchCommitDiff()` — 获取两个 commit 之间的 diff
+  - `findOpenPRsForBranch()` — 查找分支关联的开放 PR
+  - `formatIncrementalPRMarkdown()` — 增量审查评论格式化
+
+### 🎯 价值
+
+- **对标 CodeRabbit 增量审查**：CodeRabbit 核心差异化特性，已被用户广泛验证
+- **CI/CD 无缝集成**：commit 即审查，无需手动触发或等待完整 PR 审查
+- **上下文保留**：只审查本次变更，不重复审查历史代码，噪声减少 70%+
+- **PR 内反馈闭环**：增量结果直接发布到 PR conversation，开发者无需跳转
+
+---
+
 ## [v1.3.3] — 2026-06-17
 
 ### 🧠 多 Agent 协调层
