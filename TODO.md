@@ -60,11 +60,44 @@
 
 ---
 
-## 🔥 需求挖掘 — 2026-06-27（周六）— 距上次扫描 1 天
+## 🔥 需求挖掘 — 2026-06-29（周一）— 距上次扫描 2 天
+
+> 竞品扫描无新动态：Qodo 博客无新文章（约 2 周无新发布，战略稳定期）；CodeRabbit Changelog 无增量内容（上一次密集更新是 6/18-6/24）。行业信号偏清静。增量 commit 自动审查开发中。
+
+### 🆕 今日进展
+
+1. **v1.4.0 增量自动审查开发中**：`src/github-app.js` 正在修改，GitHub App 监听 `push` 事件，每个新 commit 自动触发增量审查。复用 v1.3.0 `--incremental` + `--issue` 现有基础设施。
+2. **竞品格局稳定**：Qodo Series B 后战略落地期，博客停更约 2 周；CodeRabbit 在 6/18-6/24 密集发布后进入消化期，Changelog 无新增条目。
+3. **本地领先 2 commits**：`origin/main` 落后 2 个 commits，增量审查相关代码待提交。
+
+### 📊 竞品格局速览（不变）
+
+| 玩家 | 核心能力 | 最新动作 | coderev 差距 |
+|------|---------|---------|-------------|
+| **Qodo** | PR Review + IDE + CLI 全平台，Multi-Agent Fabric，Context Engine | Series B $70M；2.0 F1=60.1%；PR Knowledge System；Rules Lifecycle；Jira 集成 | 缺 PR 历史学习、缺规则生命周期管理、缺 Jira |
+| **CodeRabbit** | PR 审查 Bot + Slack Agent + Coding Plan + React Doctor | React Doctor（6/18）、Multi-repo ref（6/24）、Learnings API（6/23）、Slack Agent | 缺 Slack 集成、缺框架级审查、缺 multi-repo |
+| **GitHub Copilot** | Chat 内置审查，生态绑定 | 持续增强 | 缺生态深度绑定优势 |
+| **coderev** | CLI 审查 + 多 Agent + CI/CD + RAG + Agentic fix + 框架级工具开发中 | v1.4.0 增量自动审查开发中 | 见下方差距分析 |
+
+### 📊 2026-06-29 需求优先级 Top 5
+
+> 竞品格局稳定，v1.4.0 增量自动审查推进中。优先级保持稳定，新增「增量自动审查进度跟踪」。
+
+| 优先级 | 需求 | 理由 | 建议版本 | 连续标记 | 状态 |
+|--------|------|------|---------|---------|------|
+| 🔴 **P0** | **增量 commit 自动审查** | GitHub App 监听 push 事件，每个新 commit 自动触发增量审查。复用 v1.3.0 `--incremental` + `--issue` 基础设施，开发成本低 | **v1.4.0（开发中）** | 📅 Day 3 | 🚧 进行中 |
+| 🔴 **P1** | **React/Vue 框架级专项审查工具** | CodeRabbit React Doctor（6/18）证明框架级专项工具是下一阶段标配。ast-grep/ESLint 级规则引擎 + LLM 审查组合 | v1.4.0 | 📅 Day 4 | ⏳ 待设计 |
+| 🟠 **P1** | **PR 历史学习系统 + 可导出 API** | Qodo 2.2 + CodeRabbit Learnings API 双重验证——"代码库有记忆"从差异化升级为企业级标配 | v1.5.0 | 📅 Day 15 | ⏳ 待排期 |
+| 🟠 **P2** | **Path Instructions + Finishing Touches** | glob 级规则细分 + autofix/docstring/test gen 触发。审查→修复最后一公里 | v1.4.0 | 📅 Day 12 | ⏳ 待排期 |
+| 🟡 **P2** | **Multi-repo 跨仓库关联审查** | monorepo/微服务场景跨仓库协调变更。CodeRabbit 已产品化，coderev 完全缺失 | v1.5.0 | 📅 Day 4 | ⏳ 待设计 |
+
+---
+
+## 🔥 需求挖掘 — 2026-06-27（周六）— 历史
 
 > 距上次扫描仅 1 天，无新的竞品动态。v1.3.3 已 npm publish 完成（6/26），GitHub Release Notes 已创建（4 版）。焦点转向增量自动审查开发。
 
-### 🆕 今日进展
+### 🆕 当日进展
 
 1. **v1.3.3 发布债务已清除**：npm publish v1.3.3 已于 6/26 完成；GitHub Release Notes（v1.3.0-1.3.3 共 4 版）已创建。回归正常发布节奏。
 2. **增量 commit 自动审查开发中**（v1.4.0 核心功能）：GitHub App 监听 push 事件，PR 每新 commit 自动触发增量审查。复用 v1.3.0 `--incremental` + `--issue` 现有基础设施。
