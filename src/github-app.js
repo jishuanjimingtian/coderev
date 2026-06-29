@@ -18,6 +18,7 @@
  */
 
 const http = require('http');
+const https = require('https');
 const crypto = require('crypto');
 const { loadConfig, getApiKey } = require('./config');
 const { reviewDiff } = require('./reviewer');
@@ -509,65 +510,50 @@ function findOpenPRsForBranch(token, ref, branchName) {
  * Format incremental PR comment markdown.
  */
 function formatIncrementalPRMarkdown(result, ref, commitSha, branchName) {
-  const TAG = `<!-- coderev:incremental:${ref.owner}/${ref.repo}#${ref.pr}@${commitSha} -->`;
-  let md = `## 📋 coderev Incremental Review
+  const TAG = "<!-- coderev:incremental:" + ref.owner + "/" + ref.repo + "#" + ref.pr + "@" + commitSha + " -->";
+  let md = "## 📋 coderev Incremental Review\n\n" + TAG + "\n";
+  md += "**Commit:** `" + commitSha.slice(0, 8) + "` (" + branchName + ")\n";
+  md += "**Score:** " + result.score + "/100\n";
+  md += "**Issues found:** " + (result.issues || []).length + "\n\n";
 
-${TAG}
-`;
-  md += `**Commit:** \`${commitSha.slice(0, 8)}\` (${branchName})
-`;
-  md += `**Score:** ${result.score}/100
-`;
-  md += `**Issues found:** ${(result.issues || []).length}
-
-`;
-
-  if (result.summary) md += `${result.summary}
-
-`;
+  if (result.summary) md += result.summary + "\n\n";
 
   if (result.issues && result.issues.length > 0) {
-    md += '### Issues (Incremental)
-
-';
+    md += "### Issues (Incremental)\n\n";
     for (const issue of result.issues.slice(0, 10)) {
       const icons = { error: '🔴', warning: '🟡', info: '🔵' };
-      md += `- ${icons[issue.type] || '⚪'} **${issue.type.toUpperCase()}**`;
-      if (issue.severity) md += ` [${issue.severity}]`;
-      md += `: ${issue.message}`;
-      if (issue.file) md += ` (\`${issue.file}\``;
-      if (issue.line) md += `:${issue.line}`;
-      if (issue.file) md += `)`;
-      md += '
-';
-      if (issue.suggestion) md += `  - 💡 ${issue.suggestion}
-`;
+      md += "- " + (icons[issue.type] || '⚪') + " **" + issue.type.toUpperCase() + "**";
+      if (issue.severity) md += " [" + issue.severity + "]";
+      md += ": " + issue.message;
+      if (issue.file) md += " (`" + issue.file + "`";
+      if (issue.line) md += ":" + issue.line;
+      if (issue.file) md += ")";
+      md += "\n";
+      if (issue.suggestion) md += "  - 💡 " + issue.suggestion + "\n";
     }
     if (result.issues.length > 10) {
-      md += `
-  ... and ${result.issues.length - 10} more issues
-`;
+      md += "\n  ... and " + (result.issues.length - 10) + " more issues\n";
     }
   }
 
   const scoreVal = result.score;
   const emoji = scoreVal >= 80 ? '🟢' : scoreVal >= 50 ? '🟡' : '🔴';
-  md += `
-${emoji} **Incremental Score:** ${result.score}/100
-`;
+  md += "\n" + emoji + " **Incremental Score:** " + result.score + "/100\n";
 
   return md;
 }
 
 /**
- * Set a commit status on GitHub (ref without pr property).
+ * Set a commit status on GitHub.
  */
 async function setCommitStatus(token, ref, sha, state, description) {
   const body = {
     state, // 'pending', 'success', 'failure', 'error', 'neutral'
     description: description || 'coderev review',
     context: 'coderev/review',
-    target_url: ref.pr ? `https://github.com/${ref.owner}/${ref.repo}/pull/${ref.pr}` : `https://github.com/${ref.owner}/${ref.repo}`,
+    target_url: ref.pr 
+      ? `https://github.com/${ref.owner}/${ref.repo}/pull/${ref.pr}` 
+      : `https://github.com/${ref.owner}/${ref.repo}`,
   };
   return githubApi(`/repos/${ref.owner}/${ref.repo}/statuses/${sha}`, token, 'POST', body);
 }
@@ -584,7 +570,7 @@ function postPrComment(ref, body, token) {
       hostname: 'api.github.com',
       path: `/repos/${owner}/${repo}/issues/${pr}/comments`,
       method: 'POST',
-      headers: {
+      headers = {
         'User-Agent': 'coderev-github-app',
         'Accept': 'application/vnd.github.v3+json',
         'Authorization': `Bearer ${token}`,
@@ -608,20 +594,6 @@ function postPrComment(ref, body, token) {
     req.write(postData);
     req.end();
   });
-}
-
-
-/**
- * Set a commit status on GitHub.
- */
-async function setCommitStatus(token, ref, sha, state, description) {
-  const body = {
-    state, // 'pending', 'success', 'failure', 'error', 'neutral'
-    description: description || 'coderev review',
-    context: 'coderev/review',
-    target_url: `https://github.com/${ref.owner}/${ref.repo}/pull/${ref.pr}`,
-  };
-  return githubApi(`/repos/${ref.owner}/${ref.repo}/statuses/${sha}`, token, 'POST', body);
 }
 
 /**
@@ -840,7 +812,3 @@ async function serveCommand(options) {
 }
 
 module.exports = { serveCommand, handlePREvent, handlePushEvent, generateAppJWT, getInstallationToken, formatAppMarkdown, formatIncrementalPRMarkdown, fetchCommitDiff, findOpenPRsForBranch };
-
-
-// Required for inline require('https') in functions
-const https = require('https');
