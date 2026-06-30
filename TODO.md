@@ -60,6 +60,40 @@
 
 ---
 
+## 🔥 需求挖掘 — 2026-06-30（周二）— 距上次扫描 1 天
+
+> 竞品扫描：Qodo 博客无新增（约 3 周无新发布，战略稳定期）；CodeRabbit 6/29 发布 Azure DevOps CodeRabbit Review（早鸟访问），6/26 CLI v0.6.4 优化 SSO/自托管登录。增量自动审查开发中（src/github-app.js 已修改 + 新增测试文件）。
+
+### 🆕 今日进展
+
+1. **增量 commit 自动审查开发中**：`src/github-app.js` 正在修改，已新增 `src/github-app.test.js` 测试文件。GitHub App 监听 `push` 事件基础设施开发中。
+2. **CodeRabbit Azure DevOps CodeRabbit Review（6/29）**：早鸟访问版发布，支持层级导航（cohorts & layers）、范围摘要、内嵌图表。coderev 目前只有 GitHub + GitLab，Azure DevOps 仍是空白。
+3. **CodeRabbit CLI v0.6.4（6/26）**：SSO 和自托管登录流程优化，仓库检测增强（SSH 别名、自托管主机、Bitbucket slug）。coderev CLI auth 相对简单，可对标优化。
+4. **竞品格局继续稳定**：Qodo 进入战略消化期，CodeRabbit 平台化完善（Azure + CLI 优化），无突破性新功能发布。
+
+### 📊 竞品格局速览（不变）
+
+| 玩家 | 核心能力 | 最新动作 | coderev 差距 |
+|------|---------|---------|-------------|
+| **Qodo** | PR Review + IDE + CLI 全平台，Multi-Agent Fabric，Context Engine | Series B $70M；2.0 F1=60.1%；PR Knowledge System；Rules Lifecycle；Jira 集成 | 缺 PR 历史学习、缺规则生命周期管理、缺 Jira |
+| **CodeRabbit** | PR 审查 Bot + Slack Agent + Coding Plan + React Doctor | Azure DevOps CodeRabbit Review（6/29）、CLI v0.6.4（6/26）、Multi-repo ref 选择（6/24）、Learnings API（6/23） | 缺 Azure DevOps、缺 Slack 集成、缺框架级审查、缺 multi-repo |
+| **GitHub Copilot** | Chat 内置审查，生态绑定 | 持续增强 | 缺生态深度绑定优势 |
+| **coderev** | CLI 审查 + 多 Agent + CI/CD + RAG + Agentic fix + 框架级工具开发中 | v1.4.0 增量自动审查开发中（src/github-app.js + 测试） | 见下方差距分析 |
+
+### 📊 2026-06-30 需求优先级 Top 5
+
+> 竞品格局稳定，v1.4.0 增量自动审查推进中。优先级保持稳定，Azure DevOps 支持新增为远期需求。
+
+| 优先级 | 需求 | 理由 | 建议版本 | 连续标记 | 状态 |
+|--------|------|------|---------|---------|------|
+| 🔴 **P0** | **增量 commit 自动审查** | GitHub App 监听 push 事件，每个新 commit 自动触发增量审查。复用 v1.3.0 `--incremental` + `--issue` 基础设施，开发成本低 | **v1.4.0（开发中）** | 📅 Day 4 | 🚧 进行中 |
+| 🔴 **P1** | **React/Vue 框架级专项审查工具** | CodeRabbit React Doctor（6/18）证明框架级专项工具是下一阶段标配。ast-grep/ESLint 级规则引擎 + LLM 审查组合 | v1.4.0 | 📅 Day 5 | ⏳ 待设计 |
+| 🟠 **P1** | **PR 历史学习系统 + 可导出 API** | Qodo 2.2 + CodeRabbit Learnings API 双重验证——"代码库有记忆"从差异化升级为企业级标配 | v1.5.0 | 📅 Day 16 | ⏳ 待排期 |
+| 🟠 **P2** | **Path Instructions + Finishing Touches** | glob 级规则细分 + autofix/docstring/test gen 触发。审查→修复最后一公里 | v1.4.0 | 📅 Day 11 | ⏳ 待排期 |
+| 🟡 **P2** | **Multi-repo 跨仓库关联审查** | monorepo/微服务场景跨仓库协调变更。CodeRabbit 已产品化，coderev 完全缺失 | v1.5.0 | 📅 Day 3 | ⏳ 待设计 |
+
+---
+
 ## 🔥 需求挖掘 — 2026-06-29（周一）— 距上次扫描 2 天
 
 > 竞品扫描无新动态：Qodo 博客无新文章（约 2 周无新发布，战略稳定期）；CodeRabbit Changelog 无增量内容（上一次密集更新是 6/18-6/24）。行业信号偏清静。增量 commit 自动审查开发中。
@@ -402,6 +436,40 @@
 | GitHub Release Notes 创建（v1.3.0-1.3.3） | ✅ 已完成 | 4 版全部创建 |
 | npm publish v1.3.3 | ✅ 已完成 | 6/26 发布 |
 | RELEASE_NOTES.md 更新 | ✅ 已完成 | v1.3.0-1.3.3 共 4 版已写入文件 |
+
+---
+
+## 🔮 战略洞察（2026-06-30 更新）
+
+> 增量自动审查开发有序推进中（src/github-app.js + 测试文件）。CodeRabbit 继续平台化完善，Azure DevOps 支持+CLI 优化，行业无新范式级信号。
+
+### 行业正在发生什么
+
+1. **从"代码生成"到"代码治理"的范式迁移**（确认度 95%）——Qodo $120M 融资 + "Artificial Wisdom" 战略是标志性事件。下半场的竞争不在"写代码"而在"管代码"
+2. **小模型 + 推理 = 大模型替代**（确认度 90%）——Haiku 4.5 Thinking 以 1/3 价格在 PR 审查上超越 Sonnet 4.5 Thinking。对开源工具是结构性利好
+3. **"代码库有记忆"成为企业级标配**（确认度 90%）——Qodo PR Knowledge System + CodeRabbit Learnings API 双重验证。可导出的学习成果是治理级需求
+4. **框架级专项审查成为新战场**（确认度 85%）——CodeRabbit React Doctor（6/18）证明：通用 LLM 审查 → 工具级（ast-grep/ESLint）+ LLM 组合的框架级专项审查是下一阶段标配
+5. **跨平台覆盖是企业级准入门槛**（确认度 80%）——CodeRabbit 6/29 发布 Azure DevOps CodeRabbit Review，GitHub/GitLab/Azure 三平台全覆盖完成。coderev 目前只有 GitHub + GitLab，Azure DevOps 仍是空白
+6. **速度成为新瓶颈**（确认度 85%）——GPT-5 Minimal (62.7 分) 的存在说明"够好+够快"是新 PMF 维度。CI/CD 场景需要毫秒级反馈
+
+### coderev 的战略定位
+
+- ✅ **优势**：轻量开源 CLI + 多 Agent + Agentic fix loop + RAG 索引 + GPT-5/Haiku 4.5 Thinking 适配，技术栈完整
+- ✅ **v1.3.3 里程碑**：多 Agent 协调层已于 6/17 开发完成——跨 Agent 置信度校准 + 冲突检测 + Recall/Balanced/Precision 三模式全部就绪
+- ✅ **v1.4.0 进展**：增量自动审查开发中，src/github-app.js 已修改 + 新增 src/github-app.test.js 测试文件
+- ⚠️ **紧迫差距**（按影响排序）：
+  1. **增量 commit 自动审查**（v1.4.0 核心）——开发进行中，本周可完成
+  2. **框架级专项审查工具**（质量差异化）——CodeRabbit 新战场，超越通用 LLM 审查盲区
+  3. **PR 历史学习 + 可导出 API**（企业级壁垒）——双重竞品验证的长期壁垒
+  4. **Multi-repo 跨仓库审查**（企业场景覆盖）——monorepo/微服务刚需
+  5. **Path Instructions + Finishing Touches**（细粒度控制）——从"审查"到"协助修复"的最后一公里
+- 🎯 **机会窗口**：
+  - 小模型推理趋势降低开源工具运营成本 → 差异化定价优势（Haiku 4.5 Thinking 已适配）
+  - Qodo 闭源企业定位 + CodeRabbit 商业化路径留下开发者社区/中小团队空白 → 开源补位
+  - 框架级专项审查尚未有开源工具覆盖 → coderev 可先行占位
+- ⚡ **立即行动**：✅ 增量自动审查开发 → React/Vue 框架级审查工具原型设计
+
+---
 
 ## 🔮 战略洞察（2026-06-27 更新）
 

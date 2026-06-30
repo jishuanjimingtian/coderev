@@ -570,7 +570,7 @@ function postPrComment(ref, body, token) {
       hostname: 'api.github.com',
       path: `/repos/${owner}/${repo}/issues/${pr}/comments`,
       method: 'POST',
-      headers = {
+      headers: {
         'User-Agent': 'coderev-github-app',
         'Accept': 'application/vnd.github.v3+json',
         'Authorization': `Bearer ${token}`,
